@@ -43,6 +43,8 @@ class MergeApp:
         self._drag_photo: ImageTk.PhotoImage | None = None
         self._drop_line_id: int | None = None
         self._drop_target: int = -1
+        self._drag_start_x: int = -1
+        self._drag_start_y: int = -1
 
         self._edit_mode = False
         self._editor: PageEditor | None = None
@@ -686,6 +688,8 @@ class MergeApp:
         else:
             self._selected_page = page_idx
             self._drag_page = page_idx
+            self._drag_start_x = cx
+            self._drag_start_y = cy
             self._render_gallery()
 
     def _hit_test(self, cx: float, cy: float) -> int | None:
@@ -730,6 +734,14 @@ class MergeApp:
             return
         cx = self.canvas.canvasx(event.x)
         cy = self.canvas.canvasy(event.y)
+
+        # 拖拽阈值：鼠标移动超过 8 像素才开始实际拖拽
+        if self._drop_target < 0:
+            if self._drag_start_x >= 0:
+                dx = abs(cx - self._drag_start_x)
+                dy = abs(cy - self._drag_start_y)
+                if dx < 8 and dy < 8:
+                    return
 
         name = self._selected_name
         if not name:
@@ -780,6 +792,8 @@ class MergeApp:
 
         self._drag_page = -1
         self._drop_target = -1
+        self._drag_start_x = -1
+        self._drag_start_y = -1
         self._render_gallery()
 
     def _move_selected(self, direction: int):

@@ -86,7 +86,9 @@ class StagingPanel(ttk.Frame):
         for path in paths:
             try:
                 img = Image.open(path)
-                if img.mode in ("RGBA", "P", "LA"):
+                if img.mode in ("P", "LA"):
+                    img = img.convert("RGBA")
+                elif img.mode not in ("RGB", "RGBA"):
                     img = img.convert("RGB")
                 thumb = img.copy()
                 thumb.thumbnail((self.THUMB_SIZE, self.THUMB_SIZE), Image.LANCZOS)

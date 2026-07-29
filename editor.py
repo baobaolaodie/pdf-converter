@@ -566,6 +566,12 @@ def composite_layers(base_img: Image.Image, layer_dicts: list[dict]) -> Image.Im
         rot = d.get("rotation", 0.0)
         if rot != 0:
             img = img.rotate(-rot, expand=True, resample=Image.BICUBIC)
+            # expand=True 增大了画布，需调整粘贴位置保持中心对齐
+            new_w, new_h = img.size
+            x_offset = (new_w - w) // 2
+            y_offset = (new_h - h) // 2
+        else:
+            x_offset, y_offset = 0, 0
 
         opacity = d.get("opacity", 1.0)
         if opacity < 1.0 and img.mode == "RGBA":
@@ -574,7 +580,8 @@ def composite_layers(base_img: Image.Image, layer_dicts: list[dict]) -> Image.Im
             alpha = PILImage.blend(alpha, PILImage.new("L", img.size, 0), 1 - opacity)
             img.putalpha(alpha)
 
-        x, y = int(d["x"]), int(d["y"])
+        x = int(d["x"]) - x_offset
+        y = int(d["y"]) - y_offset
         if result.mode not in ("RGBA", "RGB"):
             result = result.convert("RGB")
         if img.mode == "RGBA":
