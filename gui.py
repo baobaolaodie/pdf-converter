@@ -13,6 +13,8 @@ from constants import (
 )
 from core import collect_files, build_page_list, merge_folder
 from preview import _load_base_image, render_preview, _preview_cache
+from editor import PageEditor
+from staging import StagingPanel
 
 
 class MergeApp:
@@ -41,6 +43,10 @@ class MergeApp:
         self._drag_photo: ImageTk.PhotoImage | None = None
         self._drop_line_id: int | None = None
         self._drop_target: int = -1
+
+        self._edit_mode = False
+        self._editor: PageEditor | None = None
+        self._staging: StagingPanel | None = None
 
         self._build_ui()
 
@@ -134,6 +140,7 @@ class MergeApp:
         self.canvas.bind("<Configure>", self._on_canvas_resize)
         self.canvas.bind("<Enter>", lambda e: self.canvas.bind_all("<MouseWheel>", self._on_mousewheel))
         self.canvas.bind("<Leave>", lambda e: self.canvas.unbind_all("<MouseWheel>"))
+        self.canvas.bind("<Double-Button-1>", self._on_thumb_doubleclick)
 
         bottom = ttk.Frame(self.root, padding=8)
         bottom.pack(fill="x")
@@ -290,6 +297,66 @@ class MergeApp:
             threading.Thread(target=load_all, daemon=True).start()
         else:
             self._render_gallery()
+
+    # ── 编辑模式 ──
+
+    def _on_thumb_doubleclick(self, event):
+        cx = self.canvas.canvasx(event.x)
+        cy = self.canvas.canvasy(event.y)
+        page_idx = self._hit_test(cx, cy)
+        if page_idx is None:
+            return
+        name = self._selected_name
+        if not name:
+            return
+        pages = self._pages_cache.get(name, [])
+        if page_idx >= len(pages):
+            return
+        self._enter_edit_mode(page_idx)
+
+    def _enter_edit_mode(self, page_idx: int):
+        self._edit_mode = True
+        paper = PAPER_SIZES_MM[self.paper_var.get()]
+
+        # 隐藏画廊相关组件
+        self.canvas.pack_forget()
+        self._scrollbar.pack_forget()
+
+        # 创建编辑器容器（放入 canvas 所在的父容器）
+        self._editor_container = ttk.Frame(self.canvas.master.master)
+        self._editor_container.pack(fill="both", expand=True)
+
+        # 创建编辑器
+        self._editor = PageEditor(self._editor_container, paper[0], paper[1])
+        self._editor.pack(side="left", fill="both", expand=True)
+
+        name = self._selected_name
+        pages = self._pages_cache[name]
+        bases = self._base_images[name]
+        self._editor.set_context(pages, bases)
+        self._editor.load_page(page_idx, pages, bases)
+
+        # 覆盖返回按钮回调
+        self._editor._on_back = self._exit_edit_mode
+
+        # 创建素材栏
+        self._staging = StagingPanel(self._editor_container,
+                                      get_editor=lambda: self._editor)
+        self._staging.pack(side="right", fill="y", padx=(4, 0))
+
+    def _exit_edit_mode(self):
+        if self._editor:
+            self._editor.sync_current_layers()
+        if hasattr(self, '_editor_container') and self._editor_container:
+            self._editor_container.destroy()
+        self._editor = None
+        self._staging = None
+        self._edit_mode = False
+
+        # 恢复画廊
+        self._scrollbar.pack(side="right", fill="y")
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self._render_gallery()
 
     # ── 画廊渲染 ──────────────────────────────────────────────────────────────
 
