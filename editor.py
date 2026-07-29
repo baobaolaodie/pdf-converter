@@ -544,3 +544,39 @@ class PageEditor(ttk.Frame):
 
     def _on_back(self):
         pass
+
+
+def composite_layers(base_img: Image.Image, layer_dicts: list[dict]) -> Image.Image:
+    """将图层合成到底图上。接受 Layer dict 列表（可序列化格式）。"""
+    result = base_img.copy()
+    for d in layer_dicts:
+        path = d["image_path"]
+        try:
+            img = Image.open(path)
+            if img.mode not in ("RGBA",):
+                img = img.convert("RGBA")
+        except Exception:
+            continue
+
+        w, h = int(d["width"]), int(d["height"])
+        img = img.resize((w, h), Image.LANCZOS)
+
+        rot = d.get("rotation", 0.0)
+        if rot != 0:
+            img = img.rotate(-rot, expand=True, resample=Image.BICUBIC)
+
+        opacity = d.get("opacity", 1.0)
+        if opacity < 1.0 and img.mode == "RGBA":
+            alpha = img.getchannel("A")
+            from PIL import Image as PILImage
+            alpha = PILImage.blend(alpha, PILImage.new("L", img.size, 0), 1 - opacity)
+            img.putalpha(alpha)
+
+        x, y = int(d["x"]), int(d["y"])
+        if result.mode not in ("RGBA", "RGB"):
+            result = result.convert("RGB")
+        if img.mode == "RGBA":
+            result.paste(img, (x, y), mask=img)
+        else:
+            result.paste(img, (x, y))
+    return result

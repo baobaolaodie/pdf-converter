@@ -8,6 +8,7 @@ from PIL import Image
 from pypdf import PdfWriter, PdfReader
 
 from constants import IMAGE_EXTS, Page
+from editor import composite_layers
 
 
 def collect_files(folder_path: str, exclude_name: str = "") -> list[tuple[int, str, str]]:
@@ -98,7 +99,24 @@ def merge_folder(
                 needs_rot = (want_land != page_is_land)
             if needs_rot:
                 src_page.rotate(90)
-            writer.add_page(src_page)
+
+            if pg.has_layers:
+                import fitz
+                doc = fitz.open(pg.source_path)
+                page = doc[pg.page_idx]
+                pix = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5), alpha=False)
+                from PIL import Image as PILImage
+                base_img = PILImage.frombytes("RGB", (pix.width, pix.height), pix.samples)
+                doc.close()
+                if needs_rot:
+                    base_img = base_img.rotate(-90, expand=True)
+                composited = composite_layers(base_img, pg.layers)
+                buf = BytesIO()
+                composited.save(buf, format="PDF", resolution=dpi)
+                buf.seek(0)
+                writer.add_page(PdfReader(buf).pages[0])
+            else:
+                writer.add_page(src_page)
             log(f"  + {fname} p{pg.page_idx + 1}")
         else:
             img = Image.open(pg.source_path)
@@ -128,6 +146,8 @@ def merge_folder(
             fit_scale = min(tw / orig_w, th / orig_h)
             nw, nh = int(orig_w * fit_scale), int(orig_h * fit_scale)
             img_r = img.resize((nw, nh), Image.LANCZOS)
+            if pg.has_layers:
+                img_r = composite_layers(img_r, pg.layers)
             buf = BytesIO()
             img_r.save(buf, format="PDF", resolution=dpi)
             buf.seek(0)
