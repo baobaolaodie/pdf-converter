@@ -66,7 +66,7 @@ class PageEditor(ttk.Frame):
     def _build_toolbar(self):
         self._toolbar = ttk.Frame(self)
         self._toolbar.pack(fill="x", padx=4, pady=2)
-        self._btn_back = ttk.Button(self._toolbar, text="< 返回画廊", command=self._on_back)
+        self._btn_back = ttk.Button(self._toolbar, text="< 返回画廊", command=lambda: self._on_back())
         self._btn_back.pack(side="left")
         self._page_label = ttk.Label(self._toolbar, text="", font=("", 10))
         self._page_label.pack(side="left", padx=12)
@@ -148,8 +148,10 @@ class PageEditor(ttk.Frame):
     def _fit_to_canvas(self):
         if self._page_pil is None:
             return
-        cw = self.canvas.winfo_width() or 800
-        ch = self.canvas.winfo_height() or 600
+        cw = self.canvas.winfo_width()
+        ch = self.canvas.winfo_height()
+        if cw < 50 or ch < 50:
+            cw, ch = 800, 600
         pw, ph = self._page_pil.size
         self._scale_factor = min(cw / pw, ch / ph) * 0.9
         self._offset_x = (cw - pw * self._scale_factor) / 2

@@ -322,12 +322,12 @@ class MergeApp:
         self._edit_mode = True
         paper = PAPER_SIZES_MM[self.paper_var.get()]
 
-        # 隐藏画廊相关组件
+        # 隐藏画廊相关组件（canvas 和 scrollbar 在 canvas_frame 内）
         self.canvas.pack_forget()
         self._scrollbar.pack_forget()
 
-        # 创建编辑器容器（放入 canvas 所在的父容器）
-        self._editor_container = ttk.Frame(self.canvas.master.master)
+        # 创建编辑器容器（放入 canvas_frame，即 canvas 的直接父容器）
+        self._editor_container = ttk.Frame(self.canvas.master)
         self._editor_container.pack(fill="both", expand=True)
 
         # 创建编辑器
@@ -357,9 +357,11 @@ class MergeApp:
         self._staging = None
         self._edit_mode = False
 
-        # 恢复画廊
-        self._scrollbar.pack(side="right", fill="y")
-        self.canvas.pack(side="left", fill="both", expand=True)
+        # 恢复画廊（canvas_frame = self.canvas.master）
+        from preview import _preview_cache
+        _preview_cache.clear()
+        self._scrollbar.pack(in_=self.canvas.master, side="right", fill="y")
+        self.canvas.pack(in_=self.canvas.master, side="left", fill="both", expand=True)
         self._render_gallery()
 
     # ── 独立编辑模式 ──
