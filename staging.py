@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import os
+import re
 import tkinter as tk
 from tkinter import ttk, filedialog
 from typing import TYPE_CHECKING, Callable
@@ -65,7 +66,6 @@ class StagingPanel(ttk.Frame):
         raw = event.data.strip()
         paths = []
         if raw.startswith("{") and "}" in raw:
-            import re
             paths = [m.group(1) for m in re.finditer(r'\{([^}]+)\}', raw)]
         else:
             paths = raw.split()
@@ -98,6 +98,11 @@ class StagingPanel(ttk.Frame):
         self._render_thumbs()
 
     def clear(self):
+        for simg in self._images:
+            try:
+                simg.pil_img.close()
+            except Exception:
+                pass
         self._images.clear()
         self._photo_refs.clear()
         self._render_thumbs()
