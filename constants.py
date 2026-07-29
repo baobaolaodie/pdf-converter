@@ -25,6 +25,13 @@ CELL_H   = 255
 PAD      = 12
 THUMB_MAX = 140
 
+# 编辑器布局
+HANDLE_SIZE   = 8     # 缩放句柄边长（像素）
+ROTATE_OFFSET = 25    # 旋转句柄距顶部距离
+HANDLE_COLOR  = "#2196F3"
+SELECT_COLOR  = "#2196F3"
+GHOST_ALPHA   = 128   # 拖放时半透明跟随的透明度
+
 
 @dataclass
 class Page:
@@ -37,3 +44,8 @@ class Page:
     orig_w: int = 0
     orig_h: int = 0
     scale: int = 100
+    layers: list | None = None  # Layer 对象列表，None = 无图层
+
+    @property
+    def has_layers(self) -> bool:
+        return bool(self.layers)
