@@ -45,7 +45,9 @@ class LayerStack:
     def remove(self, index: int):
         if 0 <= index < len(self.layers):
             self.layers.pop(index)
-            if self.selected_index >= len(self.layers):
+            if index < self.selected_index:
+                self.selected_index -= 1
+            elif self.selected_index >= len(self.layers):
                 self.selected_index = len(self.layers) - 1
 
     def move_up(self, index: int):

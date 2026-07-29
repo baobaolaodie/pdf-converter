@@ -1,6 +1,11 @@
 """constants.py — 数据结构与常量定义"""
 
+from __future__ import annotations
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from layers import Layer
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif", ".gif"}
 
@@ -44,7 +49,7 @@ class Page:
     orig_w: int = 0
     orig_h: int = 0
     scale: int = 100
-    layers: list | None = None  # Layer 对象列表，None = 无图层
+    layers: list[Layer] | None = None  # Layer 对象列表，None = 无图层
 
     @property
     def has_layers(self) -> bool:
