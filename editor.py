@@ -445,18 +445,23 @@ class PageEditor(ttk.Frame):
             self._interaction = ""
             self._interact_data = {}
 
-    # ── 滚轮缩放 ──
+    # ── 滚轮：平移（滚轮）/ 缩放（Ctrl+滚轮）──
 
     def _on_mousewheel(self, event):
-        delta = event.delta / 120
-        factor = 1.1 if delta > 0 else 0.9
-        old_sf = self._scale_factor
-        self._scale_factor *= factor
-        self._scale_factor = max(0.1, min(5.0, self._scale_factor))
-        real_x = (event.x - self._offset_x) / old_sf
-        real_y = (event.y - self._offset_y) / old_sf
-        self._offset_x = event.x - real_x * self._scale_factor
-        self._offset_y = event.y - real_y * self._scale_factor
+        # Ctrl+滚轮 = 缩放
+        if event.state & 0x4:  # Ctrl 键
+            delta = event.delta / 120
+            factor = 1.1 if delta > 0 else 0.9
+            old_sf = self._scale_factor
+            self._scale_factor *= factor
+            self._scale_factor = max(0.1, min(5.0, self._scale_factor))
+            real_x = (event.x - self._offset_x) / old_sf
+            real_y = (event.y - self._offset_y) / old_sf
+            self._offset_x = event.x - real_x * self._scale_factor
+            self._offset_y = event.y - real_y * self._scale_factor
+        else:
+            # 普通滚轮 = 垂直平移
+            self._offset_y -= event.delta
         self._redraw()
 
     # ── 图层操作 ──

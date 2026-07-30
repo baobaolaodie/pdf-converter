@@ -500,7 +500,8 @@ class MergeApp:
                 if pg.has_layers:
                     doc = fitz.open(pg.source_path)
                     page = doc[pg.page_idx]
-                    pix = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5), alpha=False)
+                    render_scale = dpi / 72.0
+                    pix = page.get_pixmap(matrix=fitz.Matrix(render_scale, render_scale), alpha=False)
                     from PIL import Image as PILImage
                     base_img = PILImage.frombytes("RGB", (pix.width, pix.height), pix.samples)
                     doc.close()
@@ -509,7 +510,10 @@ class MergeApp:
                         page_is_land = (pg.orig_w > pg.orig_h)
                         if use_land != page_is_land:
                             base_img = base_img.rotate(-90, expand=True)
-                    composited = composite_layers(base_img, pg.layers)
+                    from core import _scale_layer_dicts
+                    coord_scale = dpi / (72.0 * 1.5)
+                    scaled = _scale_layer_dicts(pg.layers, coord_scale)
+                    composited = composite_layers(base_img, scaled)
                     if composited.mode in ("RGBA", "P", "LA"):
                         composited = composited.convert("RGB")
                     buf = BytesIO()

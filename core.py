@@ -83,6 +83,9 @@ def merge_folder(
     portrait_h_px = int(paper_h_mm / 25.4 * dpi)
     writer = PdfWriter()
 
+    # 编辑器渲染基准：1.5x (≈108 DPI)
+    EDITOR_RENDER_SCALE = 1.5
+
     for pg in pages:
         fname = os.path.basename(pg.source_path)
 
@@ -104,13 +107,17 @@ def merge_folder(
                 import fitz
                 doc = fitz.open(pg.source_path)
                 page = doc[pg.page_idx]
-                pix = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5), alpha=False)
+                render_scale = dpi / 72.0
+                pix = page.get_pixmap(matrix=fitz.Matrix(render_scale, render_scale), alpha=False)
                 from PIL import Image as PILImage
                 base_img = PILImage.frombytes("RGB", (pix.width, pix.height), pix.samples)
                 doc.close()
                 if needs_rot:
                     base_img = base_img.rotate(-90, expand=True)
-                composited = composite_layers(base_img, pg.layers)
+                # 缩放图层坐标：编辑器空间 → 导出空间
+                coord_scale = dpi / (72.0 * EDITOR_RENDER_SCALE)
+                scaled = _scale_layer_dicts(pg.layers, coord_scale)
+                composited = composite_layers(base_img, scaled)
                 buf = BytesIO()
                 composited.save(buf, format="PDF", resolution=dpi)
                 buf.seek(0)
@@ -147,7 +154,9 @@ def merge_folder(
             nw, nh = int(orig_w * fit_scale), int(orig_h * fit_scale)
             img_r = img.resize((nw, nh), Image.LANCZOS)
             if pg.has_layers:
-                img_r = composite_layers(img_r, pg.layers)
+                # 缩放图层坐标：原图像素空间 → 缩放后空间
+                scaled = _scale_layer_dicts(pg.layers, fit_scale)
+                img_r = composite_layers(img_r, scaled)
             buf = BytesIO()
             img_r.save(buf, format="PDF", resolution=dpi)
             buf.seek(0)
@@ -160,3 +169,18 @@ def merge_folder(
         writer.write(f)
     writer.close()
     return output_path
+
+
+def _scale_layer_dicts(layer_dicts: list[dict], scale: float) -> list[dict]:
+    """按比例缩放图层坐标和尺寸。"""
+    if scale == 1.0:
+        return layer_dicts
+    result = []
+    for d in layer_dicts:
+        sd = dict(d)
+        sd["x"] = d["x"] * scale
+        sd["y"] = d["y"] * scale
+        sd["width"] = d["width"] * scale
+        sd["height"] = d["height"] * scale
+        result.append(sd)
+    return result
