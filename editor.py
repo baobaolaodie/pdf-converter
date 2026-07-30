@@ -88,7 +88,8 @@ class PageEditor(ttk.Frame):
         self.canvas.bind("<B1-Motion>", self._on_motion)
         self.canvas.bind("<ButtonRelease-1>", self._on_release)
         self.canvas.bind("<Configure>", self._on_configure)
-        self.canvas.bind("<MouseWheel>", self._on_mousewheel)
+        self.canvas.bind("<MouseWheel>", self._on_scroll_pan)
+        self.canvas.bind("<Control-MouseWheel>", self._on_scroll_zoom)
         self.canvas.bind("<Button-2>", self._on_mid_press)
         self.canvas.bind("<B2-Motion>", self._on_mid_motion)
         self.canvas.bind("<ButtonRelease-2>", self._on_mid_release)
@@ -447,21 +448,22 @@ class PageEditor(ttk.Frame):
 
     # ── 滚轮：平移（滚轮）/ 缩放（Ctrl+滚轮）──
 
-    def _on_mousewheel(self, event):
-        # Ctrl+滚轮 = 缩放
-        if event.state & 0x4:  # Ctrl 键
-            delta = event.delta / 120
-            factor = 1.1 if delta > 0 else 0.9
-            old_sf = self._scale_factor
-            self._scale_factor *= factor
-            self._scale_factor = max(0.1, min(5.0, self._scale_factor))
-            real_x = (event.x - self._offset_x) / old_sf
-            real_y = (event.y - self._offset_y) / old_sf
-            self._offset_x = event.x - real_x * self._scale_factor
-            self._offset_y = event.y - real_y * self._scale_factor
-        else:
-            # 普通滚轮 = 垂直平移
-            self._offset_y -= event.delta
+    def _on_scroll_pan(self, event):
+        """普通滚轮 = 垂直平移画布"""
+        self._offset_y += event.delta
+        self._redraw()
+
+    def _on_scroll_zoom(self, event):
+        """Ctrl+滚轮 = 以鼠标位置为中心缩放"""
+        delta = event.delta / 120
+        factor = 1.1 if delta > 0 else 0.9
+        old_sf = self._scale_factor
+        self._scale_factor *= factor
+        self._scale_factor = max(0.1, min(5.0, self._scale_factor))
+        real_x = (event.x - self._offset_x) / old_sf
+        real_y = (event.y - self._offset_y) / old_sf
+        self._offset_x = event.x - real_x * self._scale_factor
+        self._offset_y = event.y - real_y * self._scale_factor
         self._redraw()
 
     # ── 图层操作 ──

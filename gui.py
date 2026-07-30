@@ -49,6 +49,7 @@ class MergeApp:
         self._edit_mode = False
         self._editor: PageEditor | None = None
         self._staging: StagingPanel | None = None
+        self._staging_paths: list[str] = []  # 保留素材栏图片路径
         self._standalone_edit = standalone_edit
 
         self._build_ui()
@@ -345,12 +346,17 @@ class MergeApp:
         # 覆盖返回按钮回调
         self._editor._on_back = self._exit_edit_mode
 
-        # 创建素材栏
+        # 复用已有素材栏（跨页面保留已导入的图片）
         self._staging = StagingPanel(self._editor_container,
                                       get_editor=lambda: self._editor)
+        if self._staging_paths:
+            self._staging.add_files(self._staging_paths)
         self._staging.pack(side="right", fill="y", padx=(4, 0))
 
     def _exit_edit_mode(self):
+        # 保存素材栏图片路径，供下次进入编辑模式时恢复
+        if self._staging and self._staging._images:
+            self._staging_paths = [simg.path for simg in self._staging._images]
         if self._editor:
             self._editor.sync_current_layers()
         if hasattr(self, '_editor_container') and self._editor_container:
