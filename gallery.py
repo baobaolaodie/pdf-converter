@@ -4,12 +4,13 @@ import os
 import tkinter as tk
 from tkinter import ttk
 
-from PIL import ImageTk
+from PIL import Image, ImageTk
 
 from constants import (
     PAPER_SIZES_MM, ORIENT_LABELS, ORIENT_SYMBOLS, ORIENT_COLORS, ORIENT_NAMES,
     CELL_W, CELL_H, PAD, THUMB_MAX,
 )
+from core import composite_layers, _scale_layer_dicts
 from preview import render_preview, _preview_cache
 
 
@@ -80,6 +81,10 @@ class GalleryMixin:
             base = bases[i] if i < len(bases) else None
             preview = render_preview(pg, base, paper[0], paper[1])
 
+            # 在缩略图上合成图层预览
+            if preview and pg.has_layers and base is not None:
+                preview = self._composite_preview_layers(preview, pg, base, paper)
+
             if preview:
                 photo = ImageTk.PhotoImage(preview)
                 self._photo_refs.append(photo)
@@ -124,6 +129,75 @@ class GalleryMixin:
         enabled_count = sum(1 for p in pages if p.enabled)
         self._orient_hint.config(text=f"共 {len(pages)} 页，已选 {enabled_count} 页")
         self._current_folder_label.config(text=f"[ {self._selected_name} ]")
+
+    def _composite_preview_layers(self, preview, pg, base, paper):
+        """在缩略图上合成图层预览（仅用于画廊显示）。"""
+        from PIL import Image as PILImage
+
+        pw, ph = paper[0], paper[1]
+        img = base
+        if pg.orientation == "auto":
+            use_land = (pg.orig_w > pg.orig_h) if pg.is_pdf else (img.width > img.height)
+            rotate = False
+        else:
+            use_land = (pg.orientation == "landscape")
+            page_is_land = (pg.orig_w > pg.orig_h) if pg.is_pdf else (img.width > img.height)
+            rotate = (use_land != page_is_land)
+
+        if use_land:
+            frame_w_mm, frame_h_mm = max(pw, ph), min(pw, ph)
+        else:
+            frame_w_mm, frame_h_mm = min(pw, ph), max(pw, ph)
+
+        rotated = img.rotate(-90, expand=True) if rotate else img
+        img_w, img_h = rotated.size
+
+        # 计算 frame 在缩略图 canvas 中的尺寸和位置（与 preview.py 一致）
+        frame_ratio = frame_w_mm / frame_h_mm
+        avail_w, avail_h = CELL_W - 16, THUMB_MAX - 10
+        if frame_ratio > avail_w / avail_h:
+            fw = avail_w
+            fh = int(fw / frame_ratio)
+        else:
+            fh = avail_h
+            fw = int(fh * frame_ratio)
+        fx0 = (CELL_W - fw) // 2
+        fy0 = (THUMB_MAX - fh) // 2 + 2
+
+        # 图层坐标从 base image 空间 → frame 空间的缩放因子
+        frame_scale = min(fw / img_w, fh / img_h)
+
+        # 合成图层到缩略图上
+        result = preview.copy()
+        for ld in pg.layers:
+            try:
+                layer_img = PILImage.open(ld["image_path"])
+                if layer_img.mode not in ("RGBA",):
+                    layer_img = layer_img.convert("RGBA")
+
+                lw = max(1, int(ld["width"] * frame_scale))
+                lh = max(1, int(ld["height"] * frame_scale))
+                layer_img = layer_img.resize((lw, lh), PILImage.LANCZOS)
+
+                rot = ld.get("rotation", 0.0)
+                if rot != 0:
+                    layer_img = layer_img.rotate(-rot, expand=True, resample=PILImage.BICUBIC)
+                    new_w, new_h = layer_img.size
+                    x_off = (new_w - lw) // 2
+                    y_off = (new_h - lh) // 2
+                else:
+                    x_off, y_off = 0, 0
+
+                # frame 内的偏移
+                inner_offset_x = (fw - int(img_w * frame_scale)) // 2
+                inner_offset_y = (fh - int(img_h * frame_scale)) // 2
+                paste_x = fx0 + inner_offset_x + int(ld["x"] * frame_scale) - x_off
+                paste_y = fy0 + inner_offset_y + int(ld["y"] * frame_scale) - y_off
+
+                result.paste(layer_img, (paste_x, paste_y), mask=layer_img)
+            except Exception:
+                continue
+        return result
 
     def _draw_badge(self, page_idx: int, cx: int, cy: int, orient: str):
         sym = ORIENT_SYMBOLS[orient]
@@ -174,6 +248,9 @@ class GalleryMixin:
         paper = PAPER_SIZES_MM[self.paper_var.get()]
         base = bases[i] if i < len(bases) else None
         preview = render_preview(pg, base, paper[0], paper[1])
+
+        if preview and pg.has_layers and base is not None:
+            preview = self._composite_preview_layers(preview, pg, base, paper)
 
         fname = os.path.basename(pg.source_path)
         label = fname + (f" p{pg.page_idx + 1}" if pg.is_pdf else "")
