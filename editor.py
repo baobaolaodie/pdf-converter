@@ -212,10 +212,15 @@ class PageEditor(ttk.Frame):
         self._layer_items.clear()
         self._handle_items.clear()
 
-        if self._page_image:
+        if self._page_pil:
             pw, ph = self._page_pil.size
             cx, cy = self._page_to_canvas(pw / 2, ph / 2)
-            self._bg_item = self.canvas.create_image(cx, cy, image=self._page_image)
+            # 根据 scale_factor 缩放底图（与 _draw_layer 一致的处理方式）
+            disp_w = max(1, int(self._size_to_canvas(pw)))
+            disp_h = max(1, int(self._size_to_canvas(ph)))
+            scaled_bg = self._page_pil.resize((disp_w, disp_h), Image.LANCZOS)
+            self._bg_photo = ImageTk.PhotoImage(scaled_bg)
+            self._bg_item = self.canvas.create_image(cx, cy, image=self._bg_photo)
 
         stack = self._layer_stacks.get(self._page_index)
         if not stack:
