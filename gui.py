@@ -310,7 +310,7 @@ class MergeApp:
     def _on_thumb_doubleclick(self, event):
         cx = self.canvas.canvasx(event.x)
         cy = self.canvas.canvasy(event.y)
-        page_idx = self._hit_test(cx, cy)
+        page_idx = self._hit_test_page(cx, cy)
         if page_idx is None:
             return
         name = self._selected_name
@@ -334,7 +334,8 @@ class MergeApp:
         self._editor_container.pack(fill="both", expand=True)
 
         # 创建编辑器
-        self._editor = PageEditor(self._editor_container, paper[0], paper[1])
+        self._editor = PageEditor(self._editor_container, paper[0], paper[1],
+                                   on_back=self._exit_edit_mode)
         self._editor.pack(side="left", fill="both", expand=True)
 
         name = self._selected_name
@@ -342,9 +343,6 @@ class MergeApp:
         bases = self._base_images[name]
         self._editor.set_context(pages, bases)
         self._editor.load_page(page_idx, pages, bases)
-
-        # 覆盖返回按钮回调
-        self._editor._on_back = self._exit_edit_mode
 
         # 复用已有素材栏（跨页面保留已导入的图片）
         self._staging = StagingPanel(self._editor_container,
@@ -489,7 +487,7 @@ class MergeApp:
             dpi = 150
 
         try:
-            from editor import composite_layers
+            from core import composite_layers, _scale_layer_dicts
             from pypdf import PdfReader, PdfWriter
             from io import BytesIO
             import fitz
@@ -516,7 +514,6 @@ class MergeApp:
                         page_is_land = (pg.orig_w > pg.orig_h)
                         if use_land != page_is_land:
                             base_img = base_img.rotate(-90, expand=True)
-                    from core import _scale_layer_dicts
                     coord_scale = dpi / (72.0 * 1.5)
                     scaled = _scale_layer_dicts(pg.layers, coord_scale)
                     composited = composite_layers(base_img, scaled)
@@ -672,7 +669,7 @@ class MergeApp:
         cx = self.canvas.canvasx(event.x)
         cy = self.canvas.canvasy(event.y)
 
-        page_idx = self._hit_test(cx, cy)
+        page_idx = self._hit_test_page(cx, cy)
         if page_idx is None:
             return
 
@@ -702,7 +699,7 @@ class MergeApp:
             self._drag_start_y = cy
             self._render_gallery()
 
-    def _hit_test(self, cx: float, cy: float) -> int | None:
+    def _hit_test_page(self, cx: float, cy: float) -> int | None:
         items = self.canvas.find_closest(cx, cy)
         if not items:
             return None

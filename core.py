@@ -1,4 +1,4 @@
-"""core.py — 文件收集、页面构建、PDF 合并"""
+"""core.py — 文件收集、页面构建、PDF 合并、图层合成"""
 
 import os
 import re
@@ -8,7 +8,6 @@ from PIL import Image
 from pypdf import PdfWriter, PdfReader
 
 from constants import IMAGE_EXTS, Page
-from editor import composite_layers
 
 
 def collect_files(folder_path: str, exclude_name: str = "") -> list[tuple[int, str, str]]:
@@ -183,4 +182,45 @@ def _scale_layer_dicts(layer_dicts: list[dict], scale: float) -> list[dict]:
         sd["width"] = d["width"] * scale
         sd["height"] = d["height"] * scale
         result.append(sd)
+    return result
+
+
+def composite_layers(base_img: Image.Image, layer_dicts: list[dict]) -> Image.Image:
+    """将图层合成到底图上。接受 Layer dict 列表（可序列化格式）。"""
+    result = base_img.copy()
+    for d in layer_dicts:
+        path = d["image_path"]
+        try:
+            img = Image.open(path)
+            if img.mode not in ("RGBA",):
+                img = img.convert("RGBA")
+        except Exception:
+            continue
+
+        w, h = int(d["width"]), int(d["height"])
+        img = img.resize((w, h), Image.LANCZOS)
+
+        rot = d.get("rotation", 0.0)
+        if rot != 0:
+            img = img.rotate(-rot, expand=True, resample=Image.BICUBIC)
+            new_w, new_h = img.size
+            x_offset = (new_w - w) // 2
+            y_offset = (new_h - h) // 2
+        else:
+            x_offset, y_offset = 0, 0
+
+        opacity = d.get("opacity", 1.0)
+        if opacity < 1.0 and img.mode == "RGBA":
+            alpha = img.getchannel("A")
+            alpha = Image.blend(alpha, Image.new("L", img.size, 0), 1 - opacity)
+            img.putalpha(alpha)
+
+        x = int(d["x"]) - x_offset
+        y = int(d["y"]) - y_offset
+        if result.mode not in ("RGBA", "RGB"):
+            result = result.convert("RGB")
+        if img.mode == "RGBA":
+            result.paste(img, (x, y), mask=img)
+        else:
+            result.paste(img, (x, y))
     return result

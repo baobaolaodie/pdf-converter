@@ -19,6 +19,10 @@ class Layer:
     opacity: float = 1.0
     pil_image: Image.Image | None = field(default=None, repr=False)
 
+    @property
+    def center(self) -> tuple[float, float]:
+        return (self.x + self.width / 2, self.y + self.height / 2)
+
     def to_dict(self) -> dict:
         return {
             "image_path": self.image_path,
@@ -81,11 +85,3 @@ class LayerStack:
 
     def snapshot(self) -> list[dict]:
         return [lyr.to_dict() for lyr in self.layers]
-
-    def restore(self, snap: list[dict], pil_cache: dict[str, Image.Image]):
-        self.layers = []
-        for d in snap:
-            lyr = Layer.from_dict(d)
-            lyr.pil_image = pil_cache.get(lyr.image_path)
-            self.layers.append(lyr)
-        self.selected_index = -1

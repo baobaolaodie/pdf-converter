@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 import math
-import os
 import tkinter as tk
 from tkinter import ttk
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from PIL import Image, ImageTk
 
 from constants import (
     Page, PAPER_SIZES_MM, HANDLE_SIZE, ROTATE_OFFSET,
-    HANDLE_COLOR, SELECT_COLOR, IMAGE_EXTS,
+    HANDLE_COLOR, SELECT_COLOR,
 )
 from layers import Layer, LayerStack
 
@@ -22,14 +21,15 @@ if TYPE_CHECKING:
 class PageEditor(ttk.Frame):
     """在 Canvas 上编辑单个 PDF 页面的浮动图片图层"""
 
-    def __init__(self, master, paper_w_mm: float, paper_h_mm: float):
+    def __init__(self, master, paper_w_mm: float, paper_h_mm: float,
+                 on_back: Callable[[], None] | None = None):
         super().__init__(master)
         self._paper_w_mm = paper_w_mm
         self._paper_h_mm = paper_h_mm
+        self._on_back_cb = on_back
 
         self._layer_stacks: dict[int, LayerStack] = {}
         self._page_index: int = -1
-        self._page_image: ImageTk.PhotoImage | None = None
         self._page_pil: Image.Image | None = None
         self._pil_cache: dict[str, Image.Image] = {}
 
@@ -128,10 +128,8 @@ class PageEditor(ttk.Frame):
         base = base_images[page_index] if page_index < len(base_images) else None
         if base is not None:
             self._page_pil = self._render_base(pg, base)
-            self._page_image = ImageTk.PhotoImage(self._page_pil)
         else:
             self._page_pil = None
-            self._page_image = None
 
         self._update_page_label(len(pages))
         self._fit_to_canvas()
@@ -235,8 +233,8 @@ class PageEditor(ttk.Frame):
         if layer.pil_image is None:
             return
 
-        cx, cy = self._page_to_canvas(layer.x + layer.width / 2,
-                                       layer.y + layer.height / 2)
+        pcx, pcy = layer.center
+        cx, cy = self._page_to_canvas(pcx, pcy)
         cw = self._size_to_canvas(layer.width)
         ch = self._size_to_canvas(layer.height)
 
@@ -252,9 +250,17 @@ class PageEditor(ttk.Frame):
         item = self.canvas.create_image(cx, cy, image=photo, tags=f"layer_{idx}")
         self._layer_items[idx] = [item]
 
+    def _get_handle_positions(self, cx: float, cy: float, hw: float, hh: float) -> list[tuple[float, float]]:
+        """返回 8 个缩放句柄的 canvas 坐标（TL, TC, TR, ML, MR, BL, BC, BR）。"""
+        return [
+            (cx - hw, cy - hh), (cx, cy - hh), (cx + hw, cy - hh),
+            (cx - hw, cy), (cx + hw, cy),
+            (cx - hw, cy + hh), (cx, cy + hh), (cx + hw, cy + hh),
+        ]
+
     def _draw_handles(self, layer: Layer):
-        cx, cy = self._page_to_canvas(layer.x + layer.width / 2,
-                                       layer.y + layer.height / 2)
+        pcx, pcy = layer.center
+        cx, cy = self._page_to_canvas(pcx, pcy)
         hw = self._size_to_canvas(layer.width) / 2
         hh = self._size_to_canvas(layer.height) / 2
 
@@ -264,11 +270,7 @@ class PageEditor(ttk.Frame):
         )
         self._handle_items.append(rid)
 
-        positions = [
-            (cx - hw, cy - hh), (cx, cy - hh), (cx + hw, cy - hh),
-            (cx - hw, cy), (cx + hw, cy),
-            (cx - hw, cy + hh), (cx, cy + hh), (cx + hw, cy + hh),
-        ]
+        positions = self._get_handle_positions(cx, cy, hw, hh)
         hs = HANDLE_SIZE / 2
         for hx, hy in positions:
             hid = self.canvas.create_rectangle(
@@ -294,34 +296,29 @@ class PageEditor(ttk.Frame):
         if not stack or not stack.layers:
             return ("none", -1)
 
-        if stack.selected_index >= 0 and stack.selected_index < len(stack.layers):
+        # 检查选中图层的旋转和缩放句柄
+        if 0 <= stack.selected_index < len(stack.layers):
             layer = stack.layers[stack.selected_index]
-            lcx, lcy = self._page_to_canvas(layer.x + layer.width / 2,
-                                             layer.y + layer.height / 2)
+            pcx, pcy = layer.center
+            lcx, lcy = self._page_to_canvas(pcx, pcy)
+            lhw = self._size_to_canvas(layer.width) / 2
             lhh = self._size_to_canvas(layer.height) / 2
+
+            # 旋转句柄
             ry = lcy - lhh - ROTATE_OFFSET
             if math.hypot(cx - lcx, cy - ry) < 8:
                 return ("rotate", 0)
 
-        if stack.selected_index >= 0 and stack.selected_index < len(stack.layers):
-            layer = stack.layers[stack.selected_index]
-            lcx, lcy = self._page_to_canvas(layer.x + layer.width / 2,
-                                             layer.y + layer.height / 2)
-            lhw = self._size_to_canvas(layer.width) / 2
-            lhh = self._size_to_canvas(layer.height) / 2
-            positions = [
-                (lcx - lhw, lcy - lhh), (lcx, lcy - lhh), (lcx + lhw, lcy - lhh),
-                (lcx - lhw, lcy), (lcx + lhw, lcy),
-                (lcx - lhw, lcy + lhh), (lcx, lcy + lhh), (lcx + lhw, lcy + lhh),
-            ]
-            for i, (hx, hy) in enumerate(positions):
+            # 缩放句柄
+            for i, (hx, hy) in enumerate(self._get_handle_positions(lcx, lcy, lhw, lhh)):
                 if abs(cx - hx) < HANDLE_SIZE and abs(cy - hy) < HANDLE_SIZE:
                     return ("handle", i)
 
+        # 检查图层命中（从顶层到底层）
         for i in range(len(stack.layers) - 1, -1, -1):
             layer = stack.layers[i]
-            lcx, lcy = self._page_to_canvas(layer.x + layer.width / 2,
-                                             layer.y + layer.height / 2)
+            pcx, pcy = layer.center
+            lcx, lcy = self._page_to_canvas(pcx, pcy)
             lhw = self._size_to_canvas(layer.width) / 2
             lhh = self._size_to_canvas(layer.height) / 2
             if (lcx - lhw <= cx <= lcx + lhw and lcy - lhh <= cy <= lcy + lhh):
@@ -350,8 +347,8 @@ class PageEditor(ttk.Frame):
         if hit_type == "rotate":
             self._push_undo()
             layer = stack.selected
-            lcx, lcy = self._page_to_canvas(layer.x + layer.width / 2,
-                                             layer.y + layer.height / 2)
+            pcx, pcy = layer.center
+            lcx, lcy = self._page_to_canvas(pcx, pcy)
             self._interaction = "rotate"
             self._interact_data = {"start_angle": math.degrees(math.atan2(cy - lcy, cx - lcx)),
                                     "orig_rotation": layer.rotation,
@@ -557,47 +554,5 @@ class PageEditor(ttk.Frame):
         self._sync_layers_to_page()
 
     def _on_back(self):
-        pass
-
-
-def composite_layers(base_img: Image.Image, layer_dicts: list[dict]) -> Image.Image:
-    """将图层合成到底图上。接受 Layer dict 列表（可序列化格式）。"""
-    result = base_img.copy()
-    for d in layer_dicts:
-        path = d["image_path"]
-        try:
-            img = Image.open(path)
-            if img.mode not in ("RGBA",):
-                img = img.convert("RGBA")
-        except Exception:
-            continue
-
-        w, h = int(d["width"]), int(d["height"])
-        img = img.resize((w, h), Image.LANCZOS)
-
-        rot = d.get("rotation", 0.0)
-        if rot != 0:
-            img = img.rotate(-rot, expand=True, resample=Image.BICUBIC)
-            # expand=True 增大了画布，需调整粘贴位置保持中心对齐
-            new_w, new_h = img.size
-            x_offset = (new_w - w) // 2
-            y_offset = (new_h - h) // 2
-        else:
-            x_offset, y_offset = 0, 0
-
-        opacity = d.get("opacity", 1.0)
-        if opacity < 1.0 and img.mode == "RGBA":
-            alpha = img.getchannel("A")
-            from PIL import Image as PILImage
-            alpha = PILImage.blend(alpha, PILImage.new("L", img.size, 0), 1 - opacity)
-            img.putalpha(alpha)
-
-        x = int(d["x"]) - x_offset
-        y = int(d["y"]) - y_offset
-        if result.mode not in ("RGBA", "RGB"):
-            result = result.convert("RGB")
-        if img.mode == "RGBA":
-            result.paste(img, (x, y), mask=img)
-        else:
-            result.paste(img, (x, y))
-    return result
+        if self._on_back_cb:
+            self._on_back_cb()

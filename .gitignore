@@ -23,6 +23,8 @@ Thumbs.db
 
 # Claude Code
 CLAUDE.md
+.superpowers/
+docs/superpowers/
 
 # Output
 *.pdf
