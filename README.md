@@ -88,16 +88,18 @@ GUI 框架：tkinter（标准库）
 
 ```
 main.py         入口（支持 --edit 参数）
-gui.py          Tkinter GUI 主界面 (MergeApp)
-core.py         文件收集、页面构建、PDF 合并逻辑
-editor.py       Canvas 图层编辑器 (PageEditor) + 图层合成
+gui.py          MergeApp 协调器（UI 构建、文件夹扫描、合并编排）
+gallery.py      GalleryMixin 画廊视图（缩略图渲染、拖拽排序）
+standalone.py   StandaloneMixin 独立编辑模式
+editor.py       Canvas 图层编辑器 (PageEditor)
+core.py         文件收集、页面构建、PDF 合并、图层合成
 layers.py       图层数据模型 (Layer, LayerStack)
 staging.py      素材栏面板 (StagingPanel)
 preview.py      缩略图加载与渲染
 constants.py    数据结构 (Page) 与常量定义
 ```
 
-依赖方向：`constants ← core / preview / layers ← editor / staging ← gui ← main`
+依赖方向：`constants ← core / preview / layers ← editor / staging ← gallery / standalone ← gui ← main`
 
 ## Contributing
 
