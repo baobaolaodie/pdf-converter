@@ -29,7 +29,7 @@ AGENTS.md
 .comet/
 .codegraph/
 .superpowers/
-docs/superpowers/
+docs/
 
 # Output
 *.pdf
