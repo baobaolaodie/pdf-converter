@@ -22,7 +22,7 @@ from export import ExportDialog, ExportProgressDialog
 class MergeApp(GalleryMixin, StandaloneMixin):
     def __init__(self, root: tk.Tk, initial_path: str | None = None, standalone_edit: bool = False):
         self.root = root
-        self.root.title("合并为 PDF")
+        self.root.title("PDFer")
         self.root.minsize(960, 640)
 
         self.folder_var = tk.StringVar(value=initial_path or "")
