@@ -386,7 +386,7 @@ class ExportProgressDialog(tk.Toplevel):
                    font=("", 11), foreground="#27ae60").pack(anchor="w", pady=2)
 
         if r["failed"]:
-            failed_str = ", ".join(f"#{p[0]}" for p in r["failed"])
+            failed_str = ", ".join(f"#{p[0]}({p[1]})" for p in r["failed"])
             ttk.Label(main, text=f"✗ 跳过 {len(r['failed'])} 页: {failed_str}",
                        font=("", 10), foreground="#e74c3c").pack(anchor="w", pady=2)
 
