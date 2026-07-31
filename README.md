@@ -1,4 +1,4 @@
-# 合并为 PDF
+# PDFer
 
 将文件夹中的图片和 PDF 按编号顺序合并为单个 PDF 的 Windows 桌面工具，内置图片编辑器，支持在 PDF 页面上放置浮动图层。
 
@@ -31,8 +31,8 @@
 ## 快速上手
 
 ```bash
-git clone https://github.com/baobaolaodie/pdf-converter.git
-cd pdf-converter
+git clone https://github.com/baobaolaodie/pdfer.git
+cd pdfer
 
 # 方式一：uv（推荐）
 uv venv && uv pip install -r requirements.txt
