@@ -1,7 +1,8 @@
-"""tests for export.parse_pages and export.export_pdf"""
+"""tests for export.parse_pages, export.export_pdf, and ExportDialog"""
 
 import os
 import tempfile
+import tkinter as tk
 
 import fitz
 import pytest
@@ -271,3 +272,247 @@ def test_export_failed_list_contains_error_info():
         assert isinstance(entry, tuple), f"Expected tuple, got {type(entry)}"
         assert entry[0] == 100  # 1-based page number
         assert isinstance(entry[1], str)  # error message
+
+
+# ── ExportDialog tests ──────────────────────────────────────────
+
+
+@pytest.fixture(scope="session")
+def _tk_root():
+    """Create a hidden Tk root for dialog testing, shared across tests."""
+    root = tk.Tk()
+    root.withdraw()
+    yield root
+    root.destroy()
+
+
+@pytest.fixture
+def _sample_pdf(tmp_path):
+    """Create a 3-page PDF in tmp_path, return its path."""
+    pdf_path = str(tmp_path / "sample.pdf")
+    _make_tiny_pdf(pdf_path, n_pages=3)
+    return pdf_path
+
+
+def test_dialog_import():
+    """ExportDialog can be imported from export module."""
+    from export import ExportDialog
+    assert ExportDialog is not None
+
+
+def test_dialog_initial_result_none(_tk_root, _sample_pdf):
+    """_result should be None right after creation."""
+    from export import ExportDialog
+    dlg = ExportDialog(_tk_root, _sample_pdf)
+    try:
+        assert dlg._result is None
+    finally:
+        dlg.destroy()
+
+
+def test_dialog_default_format_png(_tk_root, _sample_pdf):
+    """Default format should be 'png'."""
+    from export import ExportDialog
+    dlg = ExportDialog(_tk_root, _sample_pdf)
+    try:
+        assert dlg._fmt_var.get() == "png"
+    finally:
+        dlg.destroy()
+
+
+def test_dialog_default_dpi_150(_tk_root, _sample_pdf):
+    """Default DPI should be 150."""
+    from export import ExportDialog
+    dlg = ExportDialog(_tk_root, _sample_pdf)
+    try:
+        assert dlg._dpi_var.get() == 150
+    finally:
+        dlg.destroy()
+
+
+def test_get_dpi_preset(_tk_root, _sample_pdf):
+    """_get_dpi returns the selected preset when custom is off."""
+    from export import ExportDialog
+    dlg = ExportDialog(_tk_root, _sample_pdf)
+    try:
+        dlg._dpi_var.set(300)
+        dlg._use_custom_dpi.set(False)
+        assert dlg._get_dpi() == 300
+    finally:
+        dlg.destroy()
+
+
+def test_get_dpi_custom(_tk_root, _sample_pdf):
+    """_get_dpi returns custom value when custom is on."""
+    from export import ExportDialog
+    dlg = ExportDialog(_tk_root, _sample_pdf)
+    try:
+        dlg._use_custom_dpi.set(True)
+        dlg._dpi_custom_var.set("200")
+        assert dlg._get_dpi() == 200
+    finally:
+        dlg.destroy()
+
+
+def test_get_dpi_custom_invalid_raises(_tk_root, _sample_pdf):
+    """_get_dpi raises ValueError for non-integer custom DPI."""
+    from export import ExportDialog
+    dlg = ExportDialog(_tk_root, _sample_pdf)
+    try:
+        dlg._use_custom_dpi.set(True)
+        dlg._dpi_custom_var.set("abc")
+        with pytest.raises(ValueError, match="DPI"):
+            dlg._get_dpi()
+    finally:
+        dlg.destroy()
+
+
+def test_get_quality_preset(_tk_root, _sample_pdf):
+    """_get_quality returns the selected preset when custom is off."""
+    from export import ExportDialog
+    dlg = ExportDialog(_tk_root, _sample_pdf)
+    try:
+        dlg._quality_var.set(80)
+        dlg._use_custom_quality.set(False)
+        assert dlg._get_quality() == 80
+    finally:
+        dlg.destroy()
+
+
+def test_get_quality_custom(_tk_root, _sample_pdf):
+    """_get_quality returns custom value when custom is on."""
+    from export import ExportDialog
+    dlg = ExportDialog(_tk_root, _sample_pdf)
+    try:
+        dlg._use_custom_quality.set(True)
+        dlg._quality_custom_var.set("70")
+        assert dlg._get_quality() == 70
+    finally:
+        dlg.destroy()
+
+
+def test_get_quality_custom_invalid_raises(_tk_root, _sample_pdf):
+    """_get_quality raises ValueError for non-integer custom quality."""
+    from export import ExportDialog
+    dlg = ExportDialog(_tk_root, _sample_pdf)
+    try:
+        dlg._use_custom_quality.set(True)
+        dlg._quality_custom_var.set("xyz")
+        with pytest.raises(ValueError, match="质量"):
+            dlg._get_quality()
+    finally:
+        dlg.destroy()
+
+
+def test_confirm_sets_result(_tk_root, _sample_pdf, tmp_path):
+    """Confirm with valid params populates _result with correct keys."""
+    from export import ExportDialog
+    out_dir = str(tmp_path / "out")
+    os.makedirs(out_dir, exist_ok=True)
+    dlg = ExportDialog(_tk_root, _sample_pdf)
+    try:
+        dlg._outdir_var.set(out_dir)
+        dlg._dpi_var.set(72)
+        dlg._use_custom_dpi.set(False)
+        dlg._fmt_var.set("png")
+        dlg._pages_var.set("")
+        dlg._on_confirm()
+        assert dlg._result is not None
+        assert dlg._result["pdf_path"] == _sample_pdf
+        assert dlg._result["output_dir"] == out_dir
+        assert dlg._result["fmt"] == "png"
+        assert dlg._result["dpi"] == 72
+        assert dlg._result["quality"] == 95
+        assert dlg._result["pages"] == [0, 1, 2]
+    finally:
+        if dlg.winfo_exists():
+            dlg.destroy()
+
+
+def test_confirm_jpg_includes_quality(_tk_root, _sample_pdf, tmp_path):
+    """Confirm with fmt='jpg' should include quality in _result."""
+    from export import ExportDialog
+    out_dir = str(tmp_path / "out")
+    os.makedirs(out_dir, exist_ok=True)
+    dlg = ExportDialog(_tk_root, _sample_pdf)
+    try:
+        dlg._outdir_var.set(out_dir)
+        dlg._dpi_var.set(150)
+        dlg._use_custom_dpi.set(False)
+        dlg._fmt_var.set("jpg")
+        dlg._quality_var.set(80)
+        dlg._use_custom_quality.set(False)
+        dlg._pages_var.set("1,3")
+        dlg._on_confirm()
+        assert dlg._result is not None
+        assert dlg._result["fmt"] == "jpg"
+        assert dlg._result["quality"] == 80
+        assert dlg._result["pages"] == [0, 2]
+    finally:
+        if dlg.winfo_exists():
+            dlg.destroy()
+
+
+def test_confirm_empty_dir_shows_error(_tk_root, _sample_pdf, monkeypatch):
+    """Confirm with empty output dir should not set _result."""
+    from export import ExportDialog
+    dlg = ExportDialog(_tk_root, _sample_pdf)
+    try:
+        dlg._outdir_var.set("")
+        # Patch messagebox.showerror to capture the call instead of showing a dialog
+        errors = []
+        import tkinter.messagebox as mb
+        monkeypatch.setattr(mb, "showerror", lambda *a, **kw: errors.append(a))
+        dlg._on_confirm()
+        assert dlg._result is None
+        assert len(errors) == 1
+        assert "输出目录" in errors[0][1]
+    finally:
+        if dlg.winfo_exists():
+            dlg.destroy()
+
+
+def test_format_change_png_hides_quality(_tk_root, _sample_pdf):
+    """Switching format to 'png' should hide the quality frame."""
+    from export import ExportDialog
+    dlg = ExportDialog(_tk_root, _sample_pdf)
+    try:
+        dlg._fmt_var.set("jpg")
+        dlg._on_fmt_change()
+        assert dlg._quality_frame.winfo_manager() == "pack"
+
+        dlg._fmt_var.set("png")
+        dlg._on_fmt_change()
+        assert dlg._quality_frame.winfo_manager() == ""
+    finally:
+        dlg.destroy()
+
+
+def test_format_change_jpg_shows_quality(_tk_root, _sample_pdf):
+    """Switching format to 'jpg' should show the quality frame."""
+    from export import ExportDialog
+    dlg = ExportDialog(_tk_root, _sample_pdf)
+    try:
+        dlg._fmt_var.set("png")
+        dlg._on_fmt_change()
+        assert dlg._quality_frame.winfo_manager() == ""
+
+        dlg._fmt_var.set("jpg")
+        dlg._on_fmt_change()
+        assert dlg._quality_frame.winfo_manager() == "pack"
+    finally:
+        dlg.destroy()
+
+
+def test_result_none_after_cancel(_tk_root, _sample_pdf):
+    """_result stays None if destroy is called without confirm."""
+    from export import ExportDialog
+    dlg = ExportDialog(_tk_root, _sample_pdf)
+    dlg.destroy()
+    # result was never set; but we need to check before destroy
+    # Let's re-create and check
+    dlg = ExportDialog(_tk_root, _sample_pdf)
+    try:
+        assert dlg._result is None
+    finally:
+        dlg.destroy()

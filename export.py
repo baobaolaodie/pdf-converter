@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import os
+import tkinter as tk
+from tkinter import filedialog, messagebox, ttk
+
 import fitz
 from PIL import Image
 
@@ -113,3 +116,186 @@ def export_pdf(
                 progress_cb(i + 1, len(pages))
 
     return {"success": success, "failed": failed, "output_dir": output_dir}
+
+
+class ExportDialog(tk.Toplevel):
+    """导出设置对话框：格式、DPI、质量、页码、输出目录。"""
+
+    def __init__(self, parent, pdf_path: str):
+        super().__init__(parent)
+        self.title("导出为图片")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.grab_set()
+
+        self._pdf_path = pdf_path
+        self._result = None  # 确认后存放参数
+
+        self._build()
+
+        # 居中显示
+        self.update_idletasks()
+        w, h = self.winfo_width(), self.winfo_height()
+        x = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
+        y = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
+        self.geometry(f"+{x}+{y}")
+
+    def _build(self):
+        pad = {"padx": 8, "pady": 4}
+        main = ttk.Frame(self, padding=12)
+        main.pack(fill="both", expand=True)
+
+        # -- 格式 --
+        fmt_frame = ttk.LabelFrame(main, text="格式", padding=8)
+        fmt_frame.pack(fill="x", **pad)
+
+        self._fmt_var = tk.StringVar(value="png")
+        ttk.Radiobutton(fmt_frame, text="PNG", variable=self._fmt_var,
+                         value="png", command=self._on_fmt_change).pack(side="left", padx=8)
+        ttk.Radiobutton(fmt_frame, text="JPG", variable=self._fmt_var,
+                         value="jpg", command=self._on_fmt_change).pack(side="left", padx=8)
+
+        # -- DPI --
+        dpi_frame = ttk.LabelFrame(main, text="DPI", padding=8)
+        dpi_frame.pack(fill="x", **pad)
+
+        self._dpi_var = tk.IntVar(value=150)
+        self._dpi_custom_var = tk.StringVar(value="")
+        self._use_custom_dpi = tk.BooleanVar(value=False)
+
+        dpi_btn_frame = ttk.Frame(dpi_frame)
+        dpi_btn_frame.pack(fill="x")
+        for val in [72, 150, 300]:
+            ttk.Radiobutton(dpi_btn_frame, text=str(val), variable=self._dpi_var, value=val,
+                             command=self._sync_dpi_preset).pack(side="left", padx=4)
+        ttk.Radiobutton(dpi_btn_frame, text="自定义", variable=self._use_custom_dpi, value=True,
+                         command=self._sync_dpi_custom_toggle).pack(side="left", padx=(12, 4))
+        self._dpi_entry = ttk.Entry(dpi_btn_frame, textvariable=self._dpi_custom_var, width=6)
+        self._dpi_entry.pack(side="left")
+
+        # -- 质量（仅 JPG）--
+        self._quality_frame = ttk.LabelFrame(main, text="质量 (JPG)", padding=8)
+
+        self._quality_var = tk.IntVar(value=95)
+        self._quality_custom_var = tk.StringVar(value="")
+        self._use_custom_quality = tk.BooleanVar(value=False)
+
+        qual_btn_frame = ttk.Frame(self._quality_frame)
+        qual_btn_frame.pack(fill="x")
+        for val in [60, 80, 95]:
+            ttk.Radiobutton(qual_btn_frame, text=str(val), variable=self._quality_var, value=val,
+                             command=self._sync_quality_preset).pack(side="left", padx=4)
+        ttk.Radiobutton(qual_btn_frame, text="自定义", variable=self._use_custom_quality, value=True,
+                         command=self._sync_quality_custom_toggle).pack(side="left", padx=(12, 4))
+        self._quality_entry = ttk.Entry(qual_btn_frame, textvariable=self._quality_custom_var, width=6)
+        self._quality_entry.pack(side="left")
+
+        # -- 页码 --
+        pages_frame = ttk.LabelFrame(main, text="页码", padding=8)
+        pages_frame.pack(fill="x", **pad)
+
+        self._pages_var = tk.StringVar(value="")
+        ttk.Entry(pages_frame, textvariable=self._pages_var, width=30).pack(side="left", padx=4)
+        ttk.Label(pages_frame, text="留空=全部  例: 1,3-5,8",
+                   foreground="#888").pack(side="left", padx=4)
+
+        # -- 输出目录 --
+        dir_frame = ttk.LabelFrame(main, text="输出目录", padding=8)
+        dir_frame.pack(fill="x", **pad)
+
+        stem = os.path.splitext(os.path.basename(self._pdf_path))[0]
+        default_dir = os.path.join(os.path.dirname(self._pdf_path), stem)
+        self._outdir_var = tk.StringVar(value=default_dir)
+
+        ttk.Entry(dir_frame, textvariable=self._outdir_var, width=36).pack(side="left", padx=4)
+        ttk.Button(dir_frame, text="浏览", command=self._browse_dir).pack(side="left")
+
+        # -- 按钮 --
+        btn_frame = ttk.Frame(main)
+        btn_frame.pack(fill="x", pady=(12, 0))
+        ttk.Button(btn_frame, text="取消", command=self.destroy).pack(side="right", padx=4)
+        ttk.Button(btn_frame, text="确认导出", command=self._on_confirm).pack(side="right", padx=4)
+
+        self._on_fmt_change()  # 初始化质量区域显隐
+
+    def _on_fmt_change(self):
+        if self._fmt_var.get() == "jpg":
+            self._quality_frame.pack(fill="x", padx=8, pady=4)
+        else:
+            self._quality_frame.pack_forget()
+
+    def _sync_dpi_preset(self):
+        self._use_custom_dpi.set(False)
+        self._dpi_custom_var.set("")
+
+    def _sync_dpi_custom_toggle(self):
+        self._dpi_entry.focus_set()
+
+    def _sync_quality_preset(self):
+        self._use_custom_quality.set(False)
+        self._quality_custom_var.set("")
+
+    def _sync_quality_custom_toggle(self):
+        self._quality_entry.focus_set()
+
+    def _browse_dir(self):
+        path = filedialog.askdirectory(title="选择输出目录")
+        if path:
+            self._outdir_var.set(path)
+
+    def _get_dpi(self) -> int:
+        if self._use_custom_dpi.get():
+            try:
+                return int(self._dpi_custom_var.get())
+            except ValueError:
+                raise ValueError("自定义 DPI 必须是整数")
+        return self._dpi_var.get()
+
+    def _get_quality(self) -> int:
+        if self._use_custom_quality.get():
+            try:
+                return int(self._quality_custom_var.get())
+            except ValueError:
+                raise ValueError("自定义质量必须是整数")
+        return self._quality_var.get()
+
+    def _on_confirm(self):
+        try:
+            dpi = self._get_dpi()
+        except ValueError as e:
+            messagebox.showerror("参数错误", str(e), parent=self)
+            return
+
+        quality = self._get_quality()
+        fmt = self._fmt_var.get()
+        pages_text = self._pages_var.get().strip()
+        output_dir = self._outdir_var.get().strip()
+
+        if not output_dir:
+            messagebox.showerror("参数错误", "请选择输出目录", parent=self)
+            return
+
+        # 获取 PDF 页数用于解析页码
+        try:
+            doc = fitz.open(self._pdf_path)
+            total = len(doc)
+            doc.close()
+        except Exception as e:
+            messagebox.showerror("错误", f"无法打开 PDF: {e}", parent=self)
+            return
+
+        try:
+            page_indices = parse_pages(pages_text, total)
+        except ValueError as e:
+            messagebox.showerror("页码错误", str(e), parent=self)
+            return
+
+        self._result = {
+            "pdf_path": self._pdf_path,
+            "output_dir": output_dir,
+            "fmt": fmt,
+            "dpi": dpi,
+            "quality": quality,
+            "pages": page_indices,
+        }
+        self.destroy()
