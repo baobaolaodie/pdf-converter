@@ -346,7 +346,6 @@ class MergeApp(GalleryMixin, StandaloneMixin):
         pages = self._pages_cache.get(self._selected_name, [])
         if not pages:
             return
-        # 找到第一个 PDF 页面的路径
         pdf_path = None
         for pg in pages:
             if pg.is_pdf:
@@ -356,13 +355,15 @@ class MergeApp(GalleryMixin, StandaloneMixin):
             messagebox.showinfo("提示", "当前文件夹没有 PDF 文件可导出。")
             return
 
-        dialog = ExportDialog(self.root, pdf_path)
+        dialog = ExportDialog(self.root, pdf_path, page_list=pages)
         self.root.wait_window(dialog)
         if dialog._result:
             r = dialog._result
+            page_list = r.get("page_list")
             ExportProgressDialog(
                 self.root, r["pdf_path"], r["output_dir"],
                 r["fmt"], r["dpi"], r["quality"], r["pages"],
+                page_list=page_list,
             )
 
     def _export_from_editor(self):
@@ -380,13 +381,15 @@ class MergeApp(GalleryMixin, StandaloneMixin):
             messagebox.showinfo("提示", "当前没有 PDF 文件可导出。")
             return
 
-        dialog = ExportDialog(self.root, pdf_path)
+        dialog = ExportDialog(self.root, pdf_path, page_list=pages)
         self.root.wait_window(dialog)
         if dialog._result:
             r = dialog._result
+            page_list = r.get("page_list")
             ExportProgressDialog(
                 self.root, r["pdf_path"], r["output_dir"],
                 r["fmt"], r["dpi"], r["quality"], r["pages"],
+                page_list=page_list,
             )
 
     def _enter_edit_mode(self, page_idx: int):

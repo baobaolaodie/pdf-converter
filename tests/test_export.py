@@ -107,11 +107,12 @@ def test_total_pages_1():
 # ── export_pdf tests ──────────────────────────────────────────────
 
 
-def _make_tiny_pdf(path: str, n_pages: int = 3) -> None:
+def _make_tiny_pdf(path: str, n_pages: int = 3, width: float = 200,
+                   height: float = 200) -> None:
     """Create a minimal PDF with n_pages blank pages using fitz."""
     doc = fitz.open()
     for _ in range(n_pages):
-        doc.new_page(width=200, height=200)
+        doc.new_page(width=width, height=height)
     doc.save(path)
     doc.close()
 
@@ -542,3 +543,150 @@ def test_result_none_after_cancel(_tk_root, _sample_pdf):
         assert dlg._result is None
     finally:
         dlg.destroy()
+
+
+# ── export_pages tests ──────────────────────────────────────────
+
+
+def _make_page(source_path, page_idx=0, is_pdf=True, orientation="auto",
+               enabled=True, scale=100, layers=None):
+    """Create a Page-like object for testing."""
+    from constants import Page
+    return Page(
+        source_path=source_path,
+        file_idx=0,
+        page_idx=page_idx,
+        is_pdf=is_pdf,
+        orientation=orientation,
+        enabled=enabled,
+        scale=scale,
+        layers=layers,
+    )
+
+
+def test_export_pages_basic(tmp_path):
+    """export_pages exports a Page list to images."""
+    from export import export_pages
+    pdf_path = str(tmp_path / "test.pdf")
+    _make_tiny_pdf(pdf_path, n_pages=2)
+    out_dir = str(tmp_path / "out")
+    pages = [_make_page(pdf_path, page_idx=0), _make_page(pdf_path, page_idx=1)]
+    result = export_pages(pages, out_dir, dpi=72)
+    assert result["success"] == 2
+    assert len(result["failed"]) == 0
+    assert os.path.isdir(out_dir)
+    files = os.listdir(out_dir)
+    assert len(files) == 2
+
+
+def test_export_pages_orientation(tmp_path):
+    """export_pages applies orientation rotation."""
+    from export import export_pages
+    pdf_path = str(tmp_path / "test.pdf")
+    _make_tiny_pdf(pdf_path, n_pages=1, width=300, height=100)  # landscape page
+    out_dir = str(tmp_path / "out")
+    # Force portrait orientation on a landscape page
+    pages = [_make_page(pdf_path, page_idx=0, orientation="portrait")]
+    result = export_pages(pages, out_dir, dpi=72)
+    assert result["success"] == 1
+    # The exported image should be rotated (portrait)
+    from PIL import Image
+    img = Image.open(os.path.join(out_dir, "page1.png"))
+    w, h = img.size
+    assert h > w  # Should be portrait after rotation
+
+
+def test_export_pages_with_layers(tmp_path):
+    """export_pages composites layers onto the image."""
+    from export import export_pages
+    from PIL import Image as PILImage
+    pdf_path = str(tmp_path / "test.pdf")
+    _make_tiny_pdf(pdf_path, n_pages=1, width=200, height=200)
+    # Create a small red image as the layer
+    layer_img_path = str(tmp_path / "stamp.png")
+    stamp = PILImage.new("RGBA", (50, 50), (255, 0, 0, 255))
+    stamp.save(layer_img_path)
+    out_dir = str(tmp_path / "out")
+    layer = {
+        "x": 10, "y": 10, "width": 50, "height": 50,
+        "rotation": 0, "opacity": 1.0,
+        "image_path": layer_img_path,
+    }
+    pages = [_make_page(pdf_path, page_idx=0, layers=[layer])]
+    result = export_pages(pages, out_dir, dpi=72)
+    assert result["success"] == 1
+
+
+def test_export_pages_scale(tmp_path):
+    """export_pages applies scale factor."""
+    from export import export_pages
+    from PIL import Image
+    pdf_path = str(tmp_path / "test.pdf")
+    _make_tiny_pdf(pdf_path, n_pages=1, width=200, height=200)
+    out_dir = str(tmp_path / "out")
+    pages = [_make_page(pdf_path, page_idx=0, scale=50)]
+    result = export_pages(pages, out_dir, dpi=72)
+    assert result["success"] == 1
+    img = Image.open(os.path.join(out_dir, "page1.png"))
+    w, h = img.size
+    assert w < 200  # Should be scaled down
+    assert h < 200
+
+
+def test_export_pages_progress_callback(tmp_path):
+    """export_pages calls progress_cb for each page."""
+    from export import export_pages
+    pdf_path = str(tmp_path / "test.pdf")
+    _make_tiny_pdf(pdf_path, n_pages=3)
+    out_dir = str(tmp_path / "out")
+    pages = [_make_page(pdf_path, page_idx=i) for i in range(3)]
+    progress_calls = []
+    result = export_pages(pages, out_dir, dpi=72,
+                          progress_cb=lambda c, t: progress_calls.append((c, t)))
+    assert result["success"] == 3
+    assert progress_calls == [(1, 3), (2, 3), (3, 3)]
+
+
+def test_export_dialog_prefills_enabled_pages(_tk_root, tmp_path):
+    """ExportDialog pre-fills page numbers based on enabled pages."""
+    from export import ExportDialog
+    pdf_path = str(tmp_path / "test.pdf")
+    _make_tiny_pdf(pdf_path, n_pages=5)
+    # Create Page list with pages 0, 2, 4 enabled
+    pages = [_make_page(pdf_path, page_idx=i, enabled=(i in [0, 2, 4]))
+             for i in range(5)]
+    dlg = ExportDialog(_tk_root, pdf_path, page_list=pages)
+    try:
+        assert dlg._pages_var.get() == "1,3,5"
+    finally:
+        dlg.destroy()
+
+
+def test_export_dialog_no_page_list_default_empty(_tk_root, _sample_pdf):
+    """ExportDialog without page_list has empty pages field."""
+    from export import ExportDialog
+    dlg = ExportDialog(_tk_root, _sample_pdf)
+    try:
+        assert dlg._pages_var.get() == ""
+    finally:
+        dlg.destroy()
+
+
+def test_export_dialog_result_has_page_list(_tk_root, tmp_path):
+    """ExportDialog._result contains page_list when page_list was provided."""
+    from export import ExportDialog
+    pdf_path = str(tmp_path / "test.pdf")
+    _make_tiny_pdf(pdf_path, n_pages=3)
+    pages = [_make_page(pdf_path, page_idx=i) for i in range(3)]
+    out_dir = str(tmp_path / "out")
+    dlg = ExportDialog(_tk_root, pdf_path, page_list=pages)
+    try:
+        # Simulate confirm: set output dir and call _on_confirm
+        dlg._outdir_var.set(out_dir)
+        dlg._on_confirm()
+        assert dlg._result is not None
+        assert "page_list" in dlg._result
+        assert len(dlg._result["page_list"]) == 3
+    finally:
+        if dlg.winfo_exists():
+            dlg.destroy()

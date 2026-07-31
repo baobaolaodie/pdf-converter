@@ -10,6 +10,8 @@ from tkinter import filedialog, messagebox, ttk
 import fitz
 from PIL import Image
 
+from core import _scale_layer_dicts, composite_layers
+
 
 def parse_pages(text: str, total_pages: int) -> list[int]:
     """解析页码字符串，返回 0-based 页码列表。
@@ -119,10 +121,98 @@ def export_pdf(
     return {"success": success, "failed": failed, "output_dir": output_dir}
 
 
+def export_pages(
+    page_list: list,
+    output_dir: str,
+    fmt: str = "png",
+    dpi: int = 150,
+    quality: int = 95,
+    progress_cb=None,
+) -> dict:
+    """将 Page 对象列表导出为图片，应用 orientation/scale/layers 编辑。
+
+    Args:
+        page_list: Page 对象列表（来自 constants.Page）
+        output_dir: 输出目录
+        fmt: "png" 或 "jpg"
+        dpi: 输出分辨率
+        quality: JPG 质量 1-100（PNG 时忽略）
+        progress_cb: callback(current_idx, total)
+
+    Returns:
+        {"success": int, "failed": list[tuple[int, str]], "output_dir": str}
+    """
+    from constants import Page  # noqa: F811 — 避免循环导入
+
+    os.makedirs(output_dir, exist_ok=True)
+    EDITOR_RENDER_SCALE = 1.5
+    success = 0
+    failed = []
+
+    for i, pg in enumerate(page_list):
+        try:
+            if pg.is_pdf:
+                doc = fitz.open(pg.source_path)
+                page = doc[pg.page_idx]
+                render_scale = dpi / 72.0
+                pix = page.get_pixmap(
+                    matrix=fitz.Matrix(render_scale, render_scale), alpha=False
+                )
+                img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+                doc.close()
+            else:
+                img = Image.open(pg.source_path)
+                if img.mode in ("RGBA", "P", "LA"):
+                    img = img.convert("RGB")
+
+            orig_w, orig_h = img.size
+
+            # 方向旋转
+            if pg.orientation == "auto":
+                use_land = orig_w > orig_h
+            else:
+                use_land = pg.orientation == "landscape"
+                img_is_land = orig_w > orig_h
+                if use_land != img_is_land:
+                    img = img.rotate(-90, expand=True)
+                    orig_w, orig_h = orig_h, orig_w
+
+            # 缩放
+            if pg.scale != 100:
+                s = pg.scale / 100.0
+                new_w = max(1, int(orig_w * s))
+                new_h = max(1, int(orig_h * s))
+                img = img.resize((new_w, new_h), Image.LANCZOS)
+
+            # 图层合成
+            if pg.has_layers:
+                coord_scale = dpi / (72.0 * EDITOR_RENDER_SCALE)
+                if pg.scale != 100:
+                    coord_scale *= pg.scale / 100.0
+                scaled = _scale_layer_dicts(pg.layers, coord_scale)
+                img = composite_layers(img, scaled)
+
+            # 保存
+            fname = f"page{i + 1}.{fmt}"
+            filepath = os.path.join(output_dir, fname)
+            if fmt == "jpg":
+                img.save(filepath, quality=quality)
+            else:
+                img.save(filepath)
+            success += 1
+        except (RuntimeError, ValueError, IndexError, fitz.FileDataError) as exc:
+            failed.append((i + 1, str(exc)))
+
+        if progress_cb:
+            progress_cb(i + 1, len(page_list))
+
+    return {"success": success, "failed": failed, "output_dir": output_dir}
+
+
 class ExportDialog(tk.Toplevel):
     """导出设置对话框：格式、DPI、质量、页码、输出目录。"""
 
-    def __init__(self, parent, pdf_path: str):
+    def __init__(self, parent, pdf_path: str, page_list: list | None = None):
         super().__init__(parent)
         self.title("导出为图片")
         self.resizable(False, False)
@@ -130,6 +220,7 @@ class ExportDialog(tk.Toplevel):
         self.grab_set()
 
         self._pdf_path = pdf_path
+        self._page_list = page_list  # Page 对象列表（可选）
         self._result = None  # 确认后存放参数
 
         self._build()
@@ -195,7 +286,11 @@ class ExportDialog(tk.Toplevel):
         pages_frame = ttk.LabelFrame(main, text="页码", padding=8)
         pages_frame.pack(fill="x", **pad)
 
-        self._pages_var = tk.StringVar(value="")
+        default_pages = ""
+        if self._page_list:
+            enabled = [str(i + 1) for i, pg in enumerate(self._page_list) if pg.enabled]
+            default_pages = ",".join(enabled)
+        self._pages_var = tk.StringVar(value=default_pages)
         ttk.Entry(pages_frame, textvariable=self._pages_var, width=30).pack(side="left", padx=4)
         ttk.Label(pages_frame, text="留空=全部  例: 1,3-5,8",
                    foreground="#888").pack(side="left", padx=4)
@@ -296,6 +391,7 @@ class ExportDialog(tk.Toplevel):
             messagebox.showerror("页码错误", str(e), parent=self)
             return
 
+        # 构建结果
         self._result = {
             "pdf_path": self._pdf_path,
             "output_dir": output_dir,
@@ -304,6 +400,14 @@ class ExportDialog(tk.Toplevel):
             "quality": quality,
             "pages": page_indices,
         }
+
+        # 如果有 Page 列表，过滤出选中的 Page 对象
+        if self._page_list is not None:
+            selected_pages = [
+                self._page_list[i] for i in page_indices if i < len(self._page_list)
+            ]
+            self._result["page_list"] = selected_pages
+
         self.destroy()
 
 
@@ -311,7 +415,8 @@ class ExportProgressDialog(tk.Toplevel):
     """导出进度对话框：显示进度条，完成后显示结果。"""
 
     def __init__(self, parent, pdf_path: str, output_dir: str,
-                 fmt: str, dpi: int, quality: int, pages: list[int]):
+                 fmt: str, dpi: int, quality: int, pages: list[int],
+                 page_list: list | None = None):
         super().__init__(parent)
         self.title("正在导出")
         self.resizable(False, False)
@@ -324,6 +429,7 @@ class ExportProgressDialog(tk.Toplevel):
         self._dpi = dpi
         self._quality = quality
         self._pages = pages
+        self._page_list = page_list  # Page 对象列表（可选，编辑感知导出）
         self._result = None
 
         self.protocol("WM_DELETE_WINDOW", self._on_close)  # 禁用关闭按钮
@@ -358,11 +464,18 @@ class ExportProgressDialog(tk.Toplevel):
             def on_progress(cur, total):
                 self.after(0, lambda: self._update_progress(cur, total))
 
-            result = export_pdf(
-                self._pdf_path, self._output_dir,
-                fmt=self._fmt, dpi=self._dpi, quality=self._quality,
-                pages=self._pages, progress_cb=on_progress,
-            )
+            if self._page_list is not None:
+                result = export_pages(
+                    self._page_list, self._output_dir,
+                    fmt=self._fmt, dpi=self._dpi, quality=self._quality,
+                    progress_cb=on_progress,
+                )
+            else:
+                result = export_pdf(
+                    self._pdf_path, self._output_dir,
+                    fmt=self._fmt, dpi=self._dpi, quality=self._quality,
+                    pages=self._pages, progress_cb=on_progress,
+                )
             self._result = result
             self.after(0, self._show_result)
 
