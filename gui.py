@@ -16,6 +16,7 @@ from editor import PageEditor
 from staging import StagingPanel
 from gallery import GalleryMixin
 from standalone import StandaloneMixin
+from export import ExportDialog, ExportProgressDialog
 
 
 class MergeApp(GalleryMixin, StandaloneMixin):
@@ -149,6 +150,11 @@ class MergeApp(GalleryMixin, StandaloneMixin):
         self.canvas.bind("<Enter>", lambda e: self.canvas.bind_all("<MouseWheel>", self._on_mousewheel))
         self.canvas.bind("<Leave>", lambda e: self.canvas.unbind_all("<MouseWheel>"))
         self.canvas.bind("<Double-Button-1>", self._on_thumb_doubleclick)
+
+        # 右键菜单
+        self._context_menu = tk.Menu(self.canvas, tearoff=0)
+        self._context_menu.add_command(label="导出为图片", command=self._export_from_gallery)
+        self.canvas.bind("<Button-3>", self._show_context_menu)
 
         bottom = ttk.Frame(self.root, padding=8)
         bottom.pack(fill="x")
@@ -321,6 +327,43 @@ class MergeApp(GalleryMixin, StandaloneMixin):
         if page_idx >= len(pages):
             return
         self._enter_edit_mode(page_idx)
+
+    # ── 右键导出 ───────────────────────────────────────────────────────────
+
+    def _show_context_menu(self, event):
+        cx = self.canvas.canvasx(event.x)
+        cy = self.canvas.canvasy(event.y)
+        page_idx = self._hit_test_page(cx, cy)
+        if page_idx is None:
+            return
+        self._selected_page = page_idx
+        self._render_gallery()
+        self._context_menu.tk_popup(event.x_root, event.y_root)
+
+    def _export_from_gallery(self):
+        if not self._selected_name:
+            return
+        pages = self._pages_cache.get(self._selected_name, [])
+        if not pages:
+            return
+        # 找到第一个 PDF 页面的路径
+        pdf_path = None
+        for pg in pages:
+            if pg.is_pdf:
+                pdf_path = pg.source_path
+                break
+        if pdf_path is None:
+            messagebox.showinfo("提示", "当前文件夹没有 PDF 文件可导出。")
+            return
+
+        dialog = ExportDialog(self.root, pdf_path)
+        self.root.wait_window(dialog)
+        if dialog._result:
+            r = dialog._result
+            ExportProgressDialog(
+                self.root, r["pdf_path"], r["output_dir"],
+                r["fmt"], r["dpi"], r["quality"], r["pages"],
+            )
 
     def _enter_edit_mode(self, page_idx: int):
         self._edit_mode = True
