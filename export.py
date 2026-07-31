@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
@@ -304,3 +305,102 @@ class ExportDialog(tk.Toplevel):
             "pages": page_indices,
         }
         self.destroy()
+
+
+class ExportProgressDialog(tk.Toplevel):
+    """导出进度对话框：显示进度条，完成后显示结果。"""
+
+    def __init__(self, parent, pdf_path: str, output_dir: str,
+                 fmt: str, dpi: int, quality: int, pages: list[int]):
+        super().__init__(parent)
+        self.title("正在导出")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.grab_set()
+
+        self._pdf_path = pdf_path
+        self._output_dir = output_dir
+        self._fmt = fmt
+        self._dpi = dpi
+        self._quality = quality
+        self._pages = pages
+        self._result = None
+
+        self.protocol("WM_DELETE_WINDOW", self._on_close)  # 禁用关闭按钮
+
+        self._build()
+        self._start_export()
+
+        # 居中显示
+        self.update_idletasks()
+        w, h = self.winfo_width(), self.winfo_height()
+        x = parent.winfo_rootx() + (parent.winfo_width() - w) // 2
+        y = parent.winfo_rooty() + (parent.winfo_height() - h) // 2
+        self.geometry(f"+{x}+{y}")
+
+    def _build(self):
+        main = ttk.Frame(self, padding=16)
+        main.pack(fill="both", expand=True)
+
+        stem = os.path.splitext(os.path.basename(self._pdf_path))[0]
+        ttk.Label(main, text=f"{stem}.pdf → {self._output_dir}\\",
+                   font=("", 10)).pack(anchor="w", pady=(0, 8))
+
+        self._progress = ttk.Progressbar(main, length=400, mode="determinate",
+                                          maximum=len(self._pages))
+        self._progress.pack(fill="x", pady=4)
+
+        self._status_label = ttk.Label(main, text=f"0/{len(self._pages)} 页", font=("", 10))
+        self._status_label.pack(anchor="w", pady=4)
+
+    def _start_export(self):
+        def worker():
+            def on_progress(cur, total):
+                self.after(0, lambda: self._update_progress(cur, total))
+
+            result = export_pdf(
+                self._pdf_path, self._output_dir,
+                fmt=self._fmt, dpi=self._dpi, quality=self._quality,
+                pages=self._pages, progress_cb=on_progress,
+            )
+            self._result = result
+            self.after(0, self._show_result)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _update_progress(self, cur: int, total: int):
+        self._progress["value"] = cur
+        self._status_label.config(text=f"{cur}/{total} 页")
+
+    def _show_result(self):
+        # 清除进度视图
+        for w in self.winfo_children():
+            for child in w.winfo_children():
+                child.destroy()
+
+        main = ttk.Frame(self, padding=16)
+        main.pack(fill="both", expand=True)
+
+        r = self._result
+        ttk.Label(main, text=f"✓ 成功导出 {r['success']} 页",
+                   font=("", 11), foreground="#27ae60").pack(anchor="w", pady=2)
+
+        if r["failed"]:
+            failed_str = ", ".join(f"#{p[0]}" for p in r["failed"])
+            ttk.Label(main, text=f"✗ 跳过 {len(r['failed'])} 页: {failed_str}",
+                       font=("", 10), foreground="#e74c3c").pack(anchor="w", pady=2)
+
+        ttk.Label(main, text=f"输出目录: {r['output_dir']}",
+                   font=("", 10)).pack(anchor="w", pady=(8, 4))
+
+        btn_frame = ttk.Frame(main)
+        btn_frame.pack(fill="x", pady=(12, 0))
+        ttk.Button(btn_frame, text="打开文件夹",
+                   command=lambda: os.startfile(r["output_dir"])).pack(side="left", padx=4)
+        ttk.Button(btn_frame, text="关闭", command=self.destroy).pack(side="right", padx=4)
+
+        # 允许关闭
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
+
+    def _on_close(self):
+        pass  # 导出中禁止关闭
