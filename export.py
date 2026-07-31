@@ -73,40 +73,43 @@ def export_pdf(
         progress_cb: callback(current_page_idx, total_pages)
 
     Returns:
-        {"success": int, "failed": list[int], "output_dir": str}
+        {"success": int, "failed": list[tuple[int, str]], "output_dir": str}
+
+        ``failed`` 列表中每个元素为 ``(page_number, error_message)`` 元组，
+        其中 ``page_number`` 为 **1-based** 页码（方便人类阅读，与输入的
+        ``pages`` 参数使用的 0-based 索引不同）。
     """
     os.makedirs(output_dir, exist_ok=True)
 
-    doc = fitz.open(pdf_path)
-    total = len(doc)
-    if pages is None:
-        pages = list(range(total))
+    with fitz.open(pdf_path) as doc:
+        total = len(doc)
+        if pages is None:
+            pages = list(range(total))
 
-    matrix = fitz.Matrix(dpi / 72.0, dpi / 72.0)
-    success = 0
-    failed = []
+        matrix = fitz.Matrix(dpi / 72.0, dpi / 72.0)
+        success = 0
+        failed = []
+        stem = os.path.splitext(os.path.basename(pdf_path))[0]
 
-    for i, page_idx in enumerate(pages):
-        try:
-            page = doc[page_idx]
-            pix = page.get_pixmap(matrix=matrix, alpha=False)
-            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+        for i, page_idx in enumerate(pages):
+            try:
+                page = doc[page_idx]
+                pix = page.get_pixmap(matrix=matrix, alpha=False)
+                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
 
-            stem = os.path.splitext(os.path.basename(pdf_path))[0]
-            filename = f"{stem}_page{page_idx + 1}.{fmt}"
-            filepath = os.path.join(output_dir, filename)
+                filename = f"{stem}_page{page_idx + 1}.{fmt}"
+                filepath = os.path.join(output_dir, filename)
 
-            if fmt == "jpg":
-                img.save(filepath, quality=quality)
-            else:
-                img.save(filepath)
+                if fmt == "jpg":
+                    img.save(filepath, quality=quality)
+                else:
+                    img.save(filepath)
 
-            success += 1
-        except Exception:
-            failed.append(page_idx + 1)  # 记录 1-based 页码供人阅读
+                success += 1
+            except (RuntimeError, ValueError, IndexError, fitz.FileDataError) as exc:
+                failed.append((page_idx + 1, str(exc)))
 
-        if progress_cb:
-            progress_cb(i + 1, len(pages))
+            if progress_cb:
+                progress_cb(i + 1, len(pages))
 
-    doc.close()
     return {"success": success, "failed": failed, "output_dir": output_dir}
