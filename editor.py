@@ -73,6 +73,7 @@ class PageEditor(ttk.Frame):
         ttk.Button(self._toolbar, text="上一页", command=lambda: self.navigate(-1)).pack(side="left", padx=2)
         ttk.Button(self._toolbar, text="下一页", command=lambda: self.navigate(1)).pack(side="left", padx=2)
 
+        ttk.Separator(self._toolbar, orient="vertical").pack(side="right", fill="y", padx=4)
         ttk.Button(self._toolbar, text="删除选中", command=self.delete_selected).pack(side="right", padx=2)
         ttk.Button(self._toolbar, text="上移层", command=lambda: self._move_layer(1)).pack(side="right", padx=2)
         ttk.Button(self._toolbar, text="下移层", command=lambda: self._move_layer(-1)).pack(side="right", padx=2)

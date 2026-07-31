@@ -16,12 +16,13 @@ from editor import PageEditor
 from staging import StagingPanel
 from gallery import GalleryMixin
 from standalone import StandaloneMixin
+from export import ExportDialog, ExportProgressDialog
 
 
 class MergeApp(GalleryMixin, StandaloneMixin):
     def __init__(self, root: tk.Tk, initial_path: str | None = None, standalone_edit: bool = False):
         self.root = root
-        self.root.title("合并为 PDF")
+        self.root.title("PDFer")
         self.root.minsize(960, 640)
 
         self.folder_var = tk.StringVar(value=initial_path or "")
@@ -149,6 +150,11 @@ class MergeApp(GalleryMixin, StandaloneMixin):
         self.canvas.bind("<Enter>", lambda e: self.canvas.bind_all("<MouseWheel>", self._on_mousewheel))
         self.canvas.bind("<Leave>", lambda e: self.canvas.unbind_all("<MouseWheel>"))
         self.canvas.bind("<Double-Button-1>", self._on_thumb_doubleclick)
+
+        # 右键菜单
+        self._context_menu = tk.Menu(self.canvas, tearoff=0)
+        self._context_menu.add_command(label="导出为图片", command=self._export_from_gallery)
+        self.canvas.bind("<Button-3>", self._show_context_menu)
 
         bottom = ttk.Frame(self.root, padding=8)
         bottom.pack(fill="x")
@@ -322,6 +328,70 @@ class MergeApp(GalleryMixin, StandaloneMixin):
             return
         self._enter_edit_mode(page_idx)
 
+    # ── 右键导出 ───────────────────────────────────────────────────────────
+
+    def _show_context_menu(self, event):
+        cx = self.canvas.canvasx(event.x)
+        cy = self.canvas.canvasy(event.y)
+        page_idx = self._hit_test_page(cx, cy)
+        if page_idx is None:
+            return
+        self._selected_page = page_idx
+        self._render_gallery()
+        self._context_menu.tk_popup(event.x_root, event.y_root)
+
+    def _export_from_gallery(self):
+        if not self._selected_name:
+            return
+        pages = self._pages_cache.get(self._selected_name, [])
+        if not pages:
+            return
+        pdf_path = None
+        for pg in pages:
+            if pg.is_pdf:
+                pdf_path = pg.source_path
+                break
+        if pdf_path is None:
+            messagebox.showinfo("提示", "当前文件夹没有 PDF 文件可导出。")
+            return
+
+        dialog = ExportDialog(self.root, pdf_path, page_list=pages)
+        self.root.wait_window(dialog)
+        if dialog._result:
+            r = dialog._result
+            page_list = r.get("page_list")
+            ExportProgressDialog(
+                self.root, r["pdf_path"], r["output_dir"],
+                r["fmt"], r["dpi"], r["quality"], r["pages"],
+                page_list=page_list,
+            )
+
+    def _export_from_editor(self):
+        if not self._selected_name:
+            return
+        pages = self._pages_cache.get(self._selected_name, [])
+        if not pages:
+            return
+        pdf_path = None
+        for pg in pages:
+            if pg.is_pdf:
+                pdf_path = pg.source_path
+                break
+        if pdf_path is None:
+            messagebox.showinfo("提示", "当前没有 PDF 文件可导出。")
+            return
+
+        dialog = ExportDialog(self.root, pdf_path, page_list=pages)
+        self.root.wait_window(dialog)
+        if dialog._result:
+            r = dialog._result
+            page_list = r.get("page_list")
+            ExportProgressDialog(
+                self.root, r["pdf_path"], r["output_dir"],
+                r["fmt"], r["dpi"], r["quality"], r["pages"],
+                page_list=page_list,
+            )
+
     def _enter_edit_mode(self, page_idx: int):
         self._edit_mode = True
         paper = PAPER_SIZES_MM[self.paper_var.get()]
@@ -335,6 +405,10 @@ class MergeApp(GalleryMixin, StandaloneMixin):
         self._editor = PageEditor(self._editor_container, paper[0], paper[1],
                                    on_back=self._exit_edit_mode)
         self._editor.pack(side="left", fill="both", expand=True)
+
+        # 编辑模式导出按钮
+        ttk.Button(self._editor._toolbar, text="导出为图片",
+                   command=self._export_from_editor).pack(side="right", padx=4)
 
         name = self._selected_name
         pages = self._pages_cache[name]

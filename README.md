@@ -1,6 +1,6 @@
-# 合并为 PDF
+# PDFer
 
-将文件夹中的图片和 PDF 按编号顺序合并为单个 PDF 的 Windows 桌面工具，内置图片编辑器，支持在 PDF 页面上放置浮动图层。
+将文件夹中的图片和 PDF 按编号顺序合并为单个 PDF 的 Windows 桌面工具，内置图片编辑器，支持在 PDF 页面上放置浮动图层，支持将 PDF 导出为图片。
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-%3E%3D3.10-blue.svg)](https://www.python.org/)
@@ -28,11 +28,20 @@
 - Ctrl+Z / Ctrl+Y 撤销重做（最多 30 步）
 - 独立编辑模式：直接打开任意 PDF 文件进行图片叠加编辑（`--edit`）
 
+### PDF 导出为图片
+
+- 将 PDF 每页导出为 PNG 或 JPG 图片
+- 支持 DPI 预设（72/150/300）和自定义
+- JPG 质量预设（60/80/95）和自定义
+- 页码范围：全部、指定页码（`3`）、范围（`3-7`）、混合（`1,3-5,8`）
+- 输出目录默认为 PDF 同目录下同名子文件夹，可自选
+- 合并模式右键菜单和编辑模式工具栏均可触发导出
+
 ## 快速上手
 
 ```bash
-git clone https://github.com/baobaolaodie/pdf-converter.git
-cd pdf-converter
+git clone https://github.com/baobaolaodie/pdfer.git
+cd pdfer
 
 # 方式一：uv（推荐）
 uv venv && uv pip install -r requirements.txt
@@ -49,6 +58,8 @@ python main.py                     # 选择文件夹 → 预览 → 合并
 python main.py "D:\Photos\Albums"  # 直接加载指定文件夹
 python main.py --edit file.pdf     # 打开 PDF 进行图片编辑
 python main.py --edit              # 弹出文件选择对话框
+python main.py --export file.pdf   # 将 PDF 导出为图片
+python main.py --export file.pdf --format jpg --dpi 300 --pages 1,3-5
 ```
 
 ## 使用流程
@@ -94,11 +105,12 @@ GUI 框架：tkinter（Python 标准库）
 ## 项目结构
 
 ```
-main.py         入口（--edit 参数）
+main.py         入口（--edit / --export 参数）
 gui.py          MergeApp 协调器（UI 构建、文件夹扫描、合并编排）
-gallery.py      GalleryMixin 画廊视图（缩略图渲染、拖拽排序、图层预览）
+gallery.py      GalleryMixin 画廊视图（缩略图渲染、拖拽排序、图层预览、右键导出）
 standalone.py   StandaloneMixin 独立编辑模式
 editor.py       Canvas 图层编辑器 (PageEditor)
+export.py       PDF 导出为图片（parse_pages、export_pdf、ExportDialog、ExportProgressDialog）
 core.py         文件收集、页面构建、PDF 合并、图层合成
 layers.py       图层数据模型 (Layer, LayerStack)
 staging.py      素材栏面板 (StagingPanel)
@@ -106,7 +118,7 @@ preview.py      缩略图加载与渲染
 constants.py    数据结构 (Page) 与常量定义
 ```
 
-依赖方向：`constants ← core / preview / layers ← editor / staging ← gallery / standalone ← gui ← main`
+依赖方向：`constants ← core / preview / layers / export ← editor / staging ← gallery / standalone ← gui ← main`
 
 ## 环境要求
 
