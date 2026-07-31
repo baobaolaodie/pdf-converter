@@ -266,7 +266,12 @@ class ExportDialog(tk.Toplevel):
             messagebox.showerror("参数错误", str(e), parent=self)
             return
 
-        quality = self._get_quality()
+        try:
+            quality = self._get_quality()
+        except ValueError as e:
+            messagebox.showerror("参数错误", str(e), parent=self)
+            return
+
         fmt = self._fmt_var.get()
         pages_text = self._pages_var.get().strip()
         output_dir = self._outdir_var.get().strip()

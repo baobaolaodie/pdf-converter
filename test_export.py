@@ -504,6 +504,32 @@ def test_format_change_jpg_shows_quality(_tk_root, _sample_pdf):
         dlg.destroy()
 
 
+def test_confirm_custom_quality_invalid_shows_error(_tk_root, _sample_pdf, tmp_path, monkeypatch):
+    """Confirm with non-integer custom quality should not set _result."""
+    from export import ExportDialog
+    out_dir = str(tmp_path / "out")
+    os.makedirs(out_dir, exist_ok=True)
+    dlg = ExportDialog(_tk_root, _sample_pdf)
+    try:
+        dlg._outdir_var.set(out_dir)
+        dlg._dpi_var.set(72)
+        dlg._use_custom_dpi.set(False)
+        dlg._fmt_var.set("jpg")
+        dlg._use_custom_quality.set(True)
+        dlg._quality_custom_var.set("abc")
+        dlg._pages_var.set("")
+        errors = []
+        import tkinter.messagebox as mb
+        monkeypatch.setattr(mb, "showerror", lambda *a, **kw: errors.append(a))
+        dlg._on_confirm()
+        assert dlg._result is None
+        assert len(errors) == 1
+        assert "质量" in errors[0][1]
+    finally:
+        if dlg.winfo_exists():
+            dlg.destroy()
+
+
 def test_result_none_after_cancel(_tk_root, _sample_pdf):
     """_result stays None if destroy is called without confirm."""
     from export import ExportDialog
