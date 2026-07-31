@@ -365,6 +365,30 @@ class MergeApp(GalleryMixin, StandaloneMixin):
                 r["fmt"], r["dpi"], r["quality"], r["pages"],
             )
 
+    def _export_from_editor(self):
+        if not self._selected_name:
+            return
+        pages = self._pages_cache.get(self._selected_name, [])
+        if not pages:
+            return
+        pdf_path = None
+        for pg in pages:
+            if pg.is_pdf:
+                pdf_path = pg.source_path
+                break
+        if pdf_path is None:
+            messagebox.showinfo("提示", "当前没有 PDF 文件可导出。")
+            return
+
+        dialog = ExportDialog(self.root, pdf_path)
+        self.root.wait_window(dialog)
+        if dialog._result:
+            r = dialog._result
+            ExportProgressDialog(
+                self.root, r["pdf_path"], r["output_dir"],
+                r["fmt"], r["dpi"], r["quality"], r["pages"],
+            )
+
     def _enter_edit_mode(self, page_idx: int):
         self._edit_mode = True
         paper = PAPER_SIZES_MM[self.paper_var.get()]
@@ -378,6 +402,10 @@ class MergeApp(GalleryMixin, StandaloneMixin):
         self._editor = PageEditor(self._editor_container, paper[0], paper[1],
                                    on_back=self._exit_edit_mode)
         self._editor.pack(side="left", fill="both", expand=True)
+
+        # 编辑模式导出按钮
+        ttk.Button(self._editor._toolbar, text="导出为图片",
+                   command=self._export_from_editor).pack(side="right", padx=4)
 
         name = self._selected_name
         pages = self._pages_cache[name]
