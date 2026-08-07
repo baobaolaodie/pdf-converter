@@ -5,9 +5,9 @@ import threading
 import tkinter as tk
 from tkinter import ttk
 
-from constants import PAPER_SIZES_MM
-from editor import PageEditor
-from staging import StagingPanel
+from .constants import PAPER_SIZES_MM
+from .editor import PageEditor
+from .staging import StagingPanel
 
 
 class StandaloneMixin:
@@ -30,7 +30,7 @@ class StandaloneMixin:
             messagebox.showerror("错误", "请选择一个有效的 PDF 文件。")
             return
 
-        from core import build_page_list
+        from .core import build_page_list
         folder = os.path.dirname(path)
         fname = os.path.basename(path)
         entries = [(0, ".pdf", fname)]
@@ -43,7 +43,7 @@ class StandaloneMixin:
 
         self._enter_edit_mode_standalone(pages, bases)
 
-        from preview import _load_base_image
+        from .preview import _load_base_image
 
         def load_all():
             for i, pg in enumerate(pages):
@@ -125,7 +125,7 @@ class StandaloneMixin:
             dpi = 150
 
         try:
-            from core import composite_layers, _scale_layer_dicts
+            from .core import composite_layers, _scale_layer_dicts
             from pypdf import PdfReader, PdfWriter
             from io import BytesIO
             import fitz

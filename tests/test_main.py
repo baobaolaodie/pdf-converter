@@ -167,7 +167,7 @@ def test_export_failed_pages_print_tuple_page_number(tmp_path, capsys):
     out_dir = str(tmp_path / "out")
     mock_result = {"success": 1, "failed": [(99, "simulated error")], "output_dir": out_dir}
 
-    with patch("export.export_pdf", return_value=mock_result):
+    with patch("pdfer.export.export_pdf", return_value=mock_result):
         with patch("sys.argv", ["main.py", "--export", pdf_path, "--pages", "1,99",
                                 "--output-dir", out_dir, "--dpi", "72"]):
             from main import main

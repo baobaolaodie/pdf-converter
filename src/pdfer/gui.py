@@ -7,16 +7,16 @@ from tkinter import ttk, filedialog, messagebox
 
 from PIL import Image, ImageTk
 
-from constants import (
+from .constants import (
     Page, PAPER_SIZES_MM, IMAGE_EXTS,
 )
-from core import collect_files, build_page_list, merge_folder
-from preview import _load_base_image, _preview_cache
-from editor import PageEditor
-from staging import StagingPanel
-from gallery import GalleryMixin
-from standalone import StandaloneMixin
-from export import ExportDialog, ExportProgressDialog
+from .core import collect_files, build_page_list, merge_folder
+from .preview import _load_base_image, _preview_cache
+from .editor import PageEditor
+from .staging import StagingPanel
+from .gallery import GalleryMixin
+from .standalone import StandaloneMixin
+from .export import ExportDialog, ExportProgressDialog
 
 
 class MergeApp(GalleryMixin, StandaloneMixin):

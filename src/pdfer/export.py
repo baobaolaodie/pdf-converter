@@ -10,7 +10,7 @@ from tkinter import filedialog, messagebox, ttk
 import fitz
 from PIL import Image
 
-from core import _scale_layer_dicts, composite_layers
+from .core import _scale_layer_dicts, composite_layers
 
 
 def parse_pages(text: str, total_pages: int) -> list[int]:
@@ -142,7 +142,7 @@ def export_pages(
     Returns:
         {"success": int, "failed": list[tuple[int, str]], "output_dir": str}
     """
-    from constants import Page  # noqa: F811 — 避免循环导入
+    from .constants import Page  # noqa: F811 — 避免循环导入
 
     os.makedirs(output_dir, exist_ok=True)
     EDITOR_RENDER_SCALE = 1.5

@@ -6,12 +6,12 @@ from tkinter import ttk
 
 from PIL import Image, ImageTk
 
-from constants import (
+from .constants import (
     PAPER_SIZES_MM, ORIENT_LABELS, ORIENT_SYMBOLS, ORIENT_COLORS, ORIENT_NAMES,
     CELL_W, CELL_H, PAD, THUMB_MAX,
 )
-from core import composite_layers, _scale_layer_dicts
-from preview import render_preview, _preview_cache
+from .core import composite_layers, _scale_layer_dicts
+from .preview import render_preview, _preview_cache
 
 
 class GalleryMixin:
