@@ -105,7 +105,7 @@ GUI 框架：tkinter（Python 标准库）
 ## 项目结构
 
 ```
-src/pdfer/      主程序包（10 个模块，包内相对导入）
+src/pdfer/      主程序包（10 个模块 + __init__.py，包内相对导入）
   constants.py  数据结构 (Page) 与常量定义
   core.py       文件收集、页面构建、PDF 合并、图层合成
   editor.py     Canvas 图层编辑器 (PageEditor)
