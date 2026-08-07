@@ -7,7 +7,7 @@ from io import BytesIO
 from PIL import Image
 from pypdf import PdfWriter, PdfReader
 
-from constants import IMAGE_EXTS, Page
+from .constants import IMAGE_EXTS, Page
 
 
 def collect_files(folder_path: str, exclude_name: str = "") -> list[tuple[int, str, str]]:

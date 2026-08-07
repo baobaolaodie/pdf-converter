@@ -4,7 +4,7 @@ import tkinter as tk
 
 import pytest
 
-from export import ExportDialog, ExportProgressDialog
+from pdfer.export import ExportDialog, ExportProgressDialog
 
 
 def test_export_dialog_import():
@@ -22,7 +22,7 @@ def _app():
     """Create a MergeApp instance with a hidden Tk root for testing."""
     root = tk.Tk()
     root.withdraw()
-    from gui import MergeApp
+    from pdfer.gui import MergeApp
     app = MergeApp(root)
     yield app
     root.destroy()

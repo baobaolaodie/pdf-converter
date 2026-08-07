@@ -30,6 +30,7 @@ AGENTS.md
 .codegraph/
 .superpowers/
 docs/
+flow-kit/
 
 # Output
 *.pdf

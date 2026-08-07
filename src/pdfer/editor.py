@@ -8,14 +8,14 @@ from typing import TYPE_CHECKING, Callable
 
 from PIL import Image, ImageTk
 
-from constants import (
+from .constants import (
     Page, PAPER_SIZES_MM, HANDLE_SIZE, ROTATE_OFFSET,
     HANDLE_COLOR, SELECT_COLOR,
 )
-from layers import Layer, LayerStack
+from .layers import Layer, LayerStack
 
 if TYPE_CHECKING:
-    from staging import StagingImage
+    from .staging import StagingImage
 
 
 class PageEditor(ttk.Frame):

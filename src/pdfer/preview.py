@@ -3,7 +3,7 @@
 from PIL import Image, ImageTk, ImageDraw, ImageFont
 import fitz  # PyMuPDF
 
-from constants import (
+from .constants import (
     Page, CELL_W, THUMB_MAX,
     ORIENT_NAMES, ORIENT_COLORS,
 )

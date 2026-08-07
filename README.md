@@ -105,17 +105,19 @@ GUI 框架：tkinter（Python 标准库）
 ## 项目结构
 
 ```
-main.py         入口（--edit / --export 参数）
-gui.py          MergeApp 协调器（UI 构建、文件夹扫描、合并编排）
-gallery.py      GalleryMixin 画廊视图（缩略图渲染、拖拽排序、图层预览、右键导出）
-standalone.py   StandaloneMixin 独立编辑模式
-editor.py       Canvas 图层编辑器 (PageEditor)
-export.py       PDF 导出为图片（parse_pages、export_pdf、ExportDialog、ExportProgressDialog）
-core.py         文件收集、页面构建、PDF 合并、图层合成
-layers.py       图层数据模型 (Layer, LayerStack)
-staging.py      素材栏面板 (StagingPanel)
-preview.py      缩略图加载与渲染
-constants.py    数据结构 (Page) 与常量定义
+src/pdfer/      主程序包（10 个模块 + __init__.py，包内相对导入）
+  constants.py  数据结构 (Page) 与常量定义
+  core.py       文件收集、页面构建、PDF 合并、图层合成
+  editor.py     Canvas 图层编辑器 (PageEditor)
+  export.py     PDF 导出为图片（parse_pages、export_pdf、ExportDialog、ExportProgressDialog）
+  gallery.py    GalleryMixin 画廊视图（缩略图渲染、拖拽排序、图层预览、右键导出）
+  gui.py        MergeApp 协调器（UI 构建、文件夹扫描、合并编排）
+  layers.py     图层数据模型 (Layer, LayerStack)
+  preview.py    缩略图加载与渲染
+  staging.py    素材栏面板 (StagingPanel)
+  standalone.py StandaloneMixin 独立编辑模式
+main.py        薄入口（sys.path 注入 src，--edit / --export 参数）
+pytest.ini      pytest 配置（pythonpath = src .）
 ```
 
 依赖方向：`constants ← core / preview / layers / export ← editor / staging ← gallery / standalone ← gui ← main`

@@ -13,16 +13,18 @@
 - **编辑感知导出**：导出反映用户的编辑结果
   - 自动应用页面方向（orientation）、缩放（scale）、图层（layers）
   - 导出对话框自动预填已勾选（enabled）的页面
-- **pytest 测试框架**：76 个测试覆盖核心逻辑、CLI、GUI 集成
+- **pytest 测试框架**：80 个测试覆盖核心逻辑、CLI、GUI 集成
 
 ### 变更
 - 应用重命名为 **PDFer**（原名"合并为 PDF"）
 - 窗口标题、README、CLAUDE.md、argparse 描述均已更新
 - GitHub 仓库重命名为 `pdfer`
+- **src layout 重构**：主模块迁入 `src/pdfer/` 包，改用相对导入；main.py 变为薄入口（sys.path 注入 src）；新增 pytest.ini（`pythonpath = src .`）。`python main.py` 运行方式不变，无行为变化
 
 ### 项目结构
 - 新增 `export.py`（导出逻辑 + GUI 对话框）
 - 测试文件统一到 `tests/` 目录
+- 主模块统一迁入 `src/pdfer/` 包（根目录仅保留 `main.py` 薄入口）
 
 ## [0.1.0] - 初始版本
 

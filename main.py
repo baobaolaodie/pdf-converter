@@ -1,10 +1,14 @@
 """main.py — 入口"""
 
 import argparse
+import os
 import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "src"))
+
 import tkinter as tk
 
-from gui import MergeApp
+from pdfer.gui import MergeApp
 
 
 def main():
@@ -22,7 +26,7 @@ def main():
     # CLI 导出分支
     if args.export:
         import os
-        from export import parse_pages, export_pdf
+        from pdfer.export import parse_pages, export_pdf
 
         pdf_path = args.export
         if not os.path.isfile(pdf_path):

@@ -6,7 +6,7 @@ import tkinter as tk
 
 import fitz
 import pytest
-from export import export_pdf, parse_pages
+from pdfer.export import export_pdf, parse_pages
 
 
 def test_empty_means_all():
@@ -297,13 +297,13 @@ def _sample_pdf(tmp_path):
 
 def test_dialog_import():
     """ExportDialog can be imported from export module."""
-    from export import ExportDialog
+    from pdfer.export import ExportDialog
     assert ExportDialog is not None
 
 
 def test_dialog_initial_result_none(_tk_root, _sample_pdf):
     """_result should be None right after creation."""
-    from export import ExportDialog
+    from pdfer.export import ExportDialog
     dlg = ExportDialog(_tk_root, _sample_pdf)
     try:
         assert dlg._result is None
@@ -313,7 +313,7 @@ def test_dialog_initial_result_none(_tk_root, _sample_pdf):
 
 def test_dialog_default_format_png(_tk_root, _sample_pdf):
     """Default format should be 'png'."""
-    from export import ExportDialog
+    from pdfer.export import ExportDialog
     dlg = ExportDialog(_tk_root, _sample_pdf)
     try:
         assert dlg._fmt_var.get() == "png"
@@ -323,7 +323,7 @@ def test_dialog_default_format_png(_tk_root, _sample_pdf):
 
 def test_dialog_default_dpi_150(_tk_root, _sample_pdf):
     """Default DPI should be 150."""
-    from export import ExportDialog
+    from pdfer.export import ExportDialog
     dlg = ExportDialog(_tk_root, _sample_pdf)
     try:
         assert dlg._dpi_var.get() == 150
@@ -333,7 +333,7 @@ def test_dialog_default_dpi_150(_tk_root, _sample_pdf):
 
 def test_get_dpi_preset(_tk_root, _sample_pdf):
     """_get_dpi returns the selected preset when custom is off."""
-    from export import ExportDialog
+    from pdfer.export import ExportDialog
     dlg = ExportDialog(_tk_root, _sample_pdf)
     try:
         dlg._dpi_var.set(300)
@@ -345,7 +345,7 @@ def test_get_dpi_preset(_tk_root, _sample_pdf):
 
 def test_get_dpi_custom(_tk_root, _sample_pdf):
     """_get_dpi returns custom value when custom is on."""
-    from export import ExportDialog
+    from pdfer.export import ExportDialog
     dlg = ExportDialog(_tk_root, _sample_pdf)
     try:
         dlg._use_custom_dpi.set(True)
@@ -357,7 +357,7 @@ def test_get_dpi_custom(_tk_root, _sample_pdf):
 
 def test_get_dpi_custom_invalid_raises(_tk_root, _sample_pdf):
     """_get_dpi raises ValueError for non-integer custom DPI."""
-    from export import ExportDialog
+    from pdfer.export import ExportDialog
     dlg = ExportDialog(_tk_root, _sample_pdf)
     try:
         dlg._use_custom_dpi.set(True)
@@ -370,7 +370,7 @@ def test_get_dpi_custom_invalid_raises(_tk_root, _sample_pdf):
 
 def test_get_quality_preset(_tk_root, _sample_pdf):
     """_get_quality returns the selected preset when custom is off."""
-    from export import ExportDialog
+    from pdfer.export import ExportDialog
     dlg = ExportDialog(_tk_root, _sample_pdf)
     try:
         dlg._quality_var.set(80)
@@ -382,7 +382,7 @@ def test_get_quality_preset(_tk_root, _sample_pdf):
 
 def test_get_quality_custom(_tk_root, _sample_pdf):
     """_get_quality returns custom value when custom is on."""
-    from export import ExportDialog
+    from pdfer.export import ExportDialog
     dlg = ExportDialog(_tk_root, _sample_pdf)
     try:
         dlg._use_custom_quality.set(True)
@@ -394,7 +394,7 @@ def test_get_quality_custom(_tk_root, _sample_pdf):
 
 def test_get_quality_custom_invalid_raises(_tk_root, _sample_pdf):
     """_get_quality raises ValueError for non-integer custom quality."""
-    from export import ExportDialog
+    from pdfer.export import ExportDialog
     dlg = ExportDialog(_tk_root, _sample_pdf)
     try:
         dlg._use_custom_quality.set(True)
@@ -407,7 +407,7 @@ def test_get_quality_custom_invalid_raises(_tk_root, _sample_pdf):
 
 def test_confirm_sets_result(_tk_root, _sample_pdf, tmp_path):
     """Confirm with valid params populates _result with correct keys."""
-    from export import ExportDialog
+    from pdfer.export import ExportDialog
     out_dir = str(tmp_path / "out")
     os.makedirs(out_dir, exist_ok=True)
     dlg = ExportDialog(_tk_root, _sample_pdf)
@@ -432,7 +432,7 @@ def test_confirm_sets_result(_tk_root, _sample_pdf, tmp_path):
 
 def test_confirm_jpg_includes_quality(_tk_root, _sample_pdf, tmp_path):
     """Confirm with fmt='jpg' should include quality in _result."""
-    from export import ExportDialog
+    from pdfer.export import ExportDialog
     out_dir = str(tmp_path / "out")
     os.makedirs(out_dir, exist_ok=True)
     dlg = ExportDialog(_tk_root, _sample_pdf)
@@ -456,7 +456,7 @@ def test_confirm_jpg_includes_quality(_tk_root, _sample_pdf, tmp_path):
 
 def test_confirm_empty_dir_shows_error(_tk_root, _sample_pdf, monkeypatch):
     """Confirm with empty output dir should not set _result."""
-    from export import ExportDialog
+    from pdfer.export import ExportDialog
     dlg = ExportDialog(_tk_root, _sample_pdf)
     try:
         dlg._outdir_var.set("")
@@ -475,7 +475,7 @@ def test_confirm_empty_dir_shows_error(_tk_root, _sample_pdf, monkeypatch):
 
 def test_format_change_png_hides_quality(_tk_root, _sample_pdf):
     """Switching format to 'png' should hide the quality frame."""
-    from export import ExportDialog
+    from pdfer.export import ExportDialog
     dlg = ExportDialog(_tk_root, _sample_pdf)
     try:
         dlg._fmt_var.set("jpg")
@@ -491,7 +491,7 @@ def test_format_change_png_hides_quality(_tk_root, _sample_pdf):
 
 def test_format_change_jpg_shows_quality(_tk_root, _sample_pdf):
     """Switching format to 'jpg' should show the quality frame."""
-    from export import ExportDialog
+    from pdfer.export import ExportDialog
     dlg = ExportDialog(_tk_root, _sample_pdf)
     try:
         dlg._fmt_var.set("png")
@@ -507,7 +507,7 @@ def test_format_change_jpg_shows_quality(_tk_root, _sample_pdf):
 
 def test_confirm_custom_quality_invalid_shows_error(_tk_root, _sample_pdf, tmp_path, monkeypatch):
     """Confirm with non-integer custom quality should not set _result."""
-    from export import ExportDialog
+    from pdfer.export import ExportDialog
     out_dir = str(tmp_path / "out")
     os.makedirs(out_dir, exist_ok=True)
     dlg = ExportDialog(_tk_root, _sample_pdf)
@@ -533,7 +533,7 @@ def test_confirm_custom_quality_invalid_shows_error(_tk_root, _sample_pdf, tmp_p
 
 def test_result_none_after_cancel(_tk_root, _sample_pdf):
     """_result stays None if destroy is called without confirm."""
-    from export import ExportDialog
+    from pdfer.export import ExportDialog
     dlg = ExportDialog(_tk_root, _sample_pdf)
     dlg.destroy()
     # result was never set; but we need to check before destroy
@@ -551,7 +551,7 @@ def test_result_none_after_cancel(_tk_root, _sample_pdf):
 def _make_page(source_path, page_idx=0, is_pdf=True, orientation="auto",
                enabled=True, scale=100, layers=None):
     """Create a Page-like object for testing."""
-    from constants import Page
+    from pdfer.constants import Page
     return Page(
         source_path=source_path,
         file_idx=0,
@@ -566,7 +566,7 @@ def _make_page(source_path, page_idx=0, is_pdf=True, orientation="auto",
 
 def test_export_pages_basic(tmp_path):
     """export_pages exports a Page list to images."""
-    from export import export_pages
+    from pdfer.export import export_pages
     pdf_path = str(tmp_path / "test.pdf")
     _make_tiny_pdf(pdf_path, n_pages=2)
     out_dir = str(tmp_path / "out")
@@ -581,7 +581,7 @@ def test_export_pages_basic(tmp_path):
 
 def test_export_pages_orientation(tmp_path):
     """export_pages applies orientation rotation."""
-    from export import export_pages
+    from pdfer.export import export_pages
     pdf_path = str(tmp_path / "test.pdf")
     _make_tiny_pdf(pdf_path, n_pages=1, width=300, height=100)  # landscape page
     out_dir = str(tmp_path / "out")
@@ -598,7 +598,7 @@ def test_export_pages_orientation(tmp_path):
 
 def test_export_pages_with_layers(tmp_path):
     """export_pages composites layers onto the image."""
-    from export import export_pages
+    from pdfer.export import export_pages
     from PIL import Image as PILImage
     pdf_path = str(tmp_path / "test.pdf")
     _make_tiny_pdf(pdf_path, n_pages=1, width=200, height=200)
@@ -619,7 +619,7 @@ def test_export_pages_with_layers(tmp_path):
 
 def test_export_pages_scale(tmp_path):
     """export_pages applies scale factor."""
-    from export import export_pages
+    from pdfer.export import export_pages
     from PIL import Image
     pdf_path = str(tmp_path / "test.pdf")
     _make_tiny_pdf(pdf_path, n_pages=1, width=200, height=200)
@@ -635,7 +635,7 @@ def test_export_pages_scale(tmp_path):
 
 def test_export_pages_progress_callback(tmp_path):
     """export_pages calls progress_cb for each page."""
-    from export import export_pages
+    from pdfer.export import export_pages
     pdf_path = str(tmp_path / "test.pdf")
     _make_tiny_pdf(pdf_path, n_pages=3)
     out_dir = str(tmp_path / "out")
@@ -649,7 +649,7 @@ def test_export_pages_progress_callback(tmp_path):
 
 def test_export_dialog_prefills_enabled_pages(_tk_root, tmp_path):
     """ExportDialog pre-fills page numbers based on enabled pages."""
-    from export import ExportDialog
+    from pdfer.export import ExportDialog
     pdf_path = str(tmp_path / "test.pdf")
     _make_tiny_pdf(pdf_path, n_pages=5)
     # Create Page list with pages 0, 2, 4 enabled
@@ -664,7 +664,7 @@ def test_export_dialog_prefills_enabled_pages(_tk_root, tmp_path):
 
 def test_export_dialog_no_page_list_default_empty(_tk_root, _sample_pdf):
     """ExportDialog without page_list has empty pages field."""
-    from export import ExportDialog
+    from pdfer.export import ExportDialog
     dlg = ExportDialog(_tk_root, _sample_pdf)
     try:
         assert dlg._pages_var.get() == ""
@@ -674,7 +674,7 @@ def test_export_dialog_no_page_list_default_empty(_tk_root, _sample_pdf):
 
 def test_export_dialog_result_has_page_list(_tk_root, tmp_path):
     """ExportDialog._result contains page_list when page_list was provided."""
-    from export import ExportDialog
+    from pdfer.export import ExportDialog
     pdf_path = str(tmp_path / "test.pdf")
     _make_tiny_pdf(pdf_path, n_pages=3)
     pages = [_make_page(pdf_path, page_idx=i) for i in range(3)]

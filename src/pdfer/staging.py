@@ -9,10 +9,10 @@ from typing import TYPE_CHECKING, Callable
 
 from PIL import Image, ImageTk
 
-from constants import IMAGE_EXTS
+from .constants import IMAGE_EXTS
 
 if TYPE_CHECKING:
-    from editor import PageEditor
+    from .editor import PageEditor
 
 
 class StagingImage:

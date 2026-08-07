@@ -7,7 +7,7 @@ from tkinter import ttk
 import fitz
 import pytest
 
-from export import ExportProgressDialog
+from pdfer.export import ExportProgressDialog
 
 
 @pytest.fixture()

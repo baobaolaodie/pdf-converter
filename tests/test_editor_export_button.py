@@ -13,7 +13,7 @@ def _app():
     """Create a MergeApp instance with a hidden Tk root for testing."""
     root = tk.Tk()
     root.withdraw()
-    from gui import MergeApp
+    from pdfer.gui import MergeApp
     app = MergeApp(root)
     yield app
     root.destroy()
@@ -24,7 +24,7 @@ def _editor():
     """Create a standalone PageEditor for toolbar inspection."""
     root = tk.Tk()
     root.withdraw()
-    from editor import PageEditor
+    from pdfer.editor import PageEditor
     editor = PageEditor(root, 210.0, 297.0)
     yield editor
     root.destroy()
