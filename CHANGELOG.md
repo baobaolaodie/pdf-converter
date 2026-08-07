@@ -24,6 +24,10 @@
 - 新增 `export.py`（导出逻辑 + GUI 对话框）
 - 测试文件统一到 `tests/` 目录
 
+### Changed
+
+- 重构项目结构：主模块迁入 `src/pdfer/` 包，改用相对导入；main.py 变为薄入口（sys.path 注入 src）；新增 pytest.ini（`pythonpath = src .`）。`python main.py` 运行方式不变，无行为变化。
+
 ## [0.1.0] - 初始版本
 
 ### 功能
